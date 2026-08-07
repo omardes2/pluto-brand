@@ -232,7 +232,7 @@ class BusinessReportController extends Controller
         return [
             'range' => $range,
             'asOf' => $asOf,
-            'company' => (string) Settings::get('store.name', 'توفير أونلاين'),
+            'company' => (string) Settings::get('store.name', 'Pluto Brand'),
         ];
     }
 

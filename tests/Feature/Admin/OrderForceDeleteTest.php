@@ -30,7 +30,7 @@ class OrderForceDeleteTest extends TestCase
 
     private function admin(): User
     {
-        return User::where('email', 'admin@tawfeer.online')->first();
+        return User::where('email', 'admin@pluto-brand.com')->first();
     }
 
     public function test_admin_force_delete_reverses_accounting_and_stock(): void

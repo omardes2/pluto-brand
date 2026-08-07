@@ -2,7 +2,7 @@
 
 # تقرير التأسيس — Foundation Report
 
-**المشروع:** توفير أونلاين (Tawfeer Online) — منصة ERP + CRM + متجر إلكتروني
+**المشروع:** Pluto Brand (Pluto Brand) — منصة ERP + CRM + متجر إلكتروني
 **الإصدار:** `v0.1.0-foundation`
 **التاريخ:** 2026-07-11
 **الحالة:** ✅ الأساس مُجمَّد (Frozen) — جاهز لبدء المرحلة 2
@@ -112,7 +112,7 @@ routes/{web,api,auth}.php        ← api = /api/v1 (Sanctum)
 - 27 صلاحية مجمّعة حسب الوحدة
 - حالات: 7 طلب · 4 دفع · 5 شحن
 - إعدادات افتراضية (العملة، الضريبة، بيانات المتجر)
-- مدير افتراضي: `admin@tawfeer.online` (كلمة المرور للتطوير فقط)
+- مدير افتراضي: `admin@pluto-brand.com` (كلمة المرور للتطوير فقط)
 
 ---
 
@@ -137,11 +137,11 @@ routes/{web,api,auth}.php        ← api = /api/v1 (Sanctum)
 
 | البند | القيمة |
 |------|--------|
-| **الفرع** | `claude/tawfeer-online-setup-2ooosk` |
+| **الفرع** | `claude/pluto-brand-online-setup-2ooosk` |
 | **commit كود الأساس** | `6640e92` (feat(phase-1): scaffold Laravel foundation) |
 | **commit تجميد الأساس** | `Foundation completed (v0.1.0)` |
 | **الوسم (Tag)** | `v0.1.0-foundation` |
-| **المستودع** | github.com/omardes2/tawfeer-online-system |
+| **المستودع** | github.com/omardes2/pluto-brand |
 
 ---
 

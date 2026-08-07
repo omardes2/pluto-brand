@@ -1,12 +1,12 @@
-# Production Deployment — Tawfeer Online (Hostinger VPS)
+# Production Deployment — Pluto Brand (Hostinger VPS)
 
-Authoritative guide for deploying **Tawfeer Online** to a Hostinger VPS.
+Authoritative guide for deploying **Pluto Brand** to a Hostinger VPS.
 Target host: **AlmaLinux 9 + cPanel/WHM**, **2 vCPU / 8 GB RAM / 100 GB disk**,
 Apache (cPanel EA4). Do **not** put secrets in git — all secrets live only in the
 server `.env` (copied from `.env.production.example`).
 
-> Companion files: `.env.production.example`, `deploy/supervisor/tawfeer-worker.conf`,
-> `deploy/cron/tawfeer-crontab.txt`. Backup/restore + index notes: `docs/OPERATIONS.md`.
+> Companion files: `.env.production.example`, `deploy/supervisor/pluto-brand-worker.conf`,
+> `deploy/cron/pluto-brand-crontab.txt`. Backup/restore + index notes: `docs/OPERATIONS.md`.
 
 ---
 
@@ -33,7 +33,7 @@ php -m | grep -Ei 'bcmath|curl|gd|intl|mbstring|pdo_mysql|redis|zip|openssl|toke
 ## 1. Provision the server
 
 1. In WHM, create a cPanel account for the domain (or use an existing one). Note the
-   account user, e.g. `tawfeer`, and its home `/home/tawfeer`.
+   account user, e.g. `pluto-brand`, and its home `/home/pluto-brand`.
 2. Install **Redis** (root/WHM SSH):
    ```bash
    dnf install -y redis
@@ -56,19 +56,19 @@ php -m | grep -Ei 'bcmath|curl|gd|intl|mbstring|pdo_mysql|redis|zip|openssl|toke
 ## 2. Get the code
 
 SSH as the cPanel user. Deploy **outside** the web root and point Apache's document
-root at `app/public` — OR deploy into `~/tawfeer` and symlink. Recommended layout:
+root at `app/public` — OR deploy into `~/pluto-brand` and symlink. Recommended layout:
 
 ```bash
 cd ~
-git clone https://github.com/omardes2/tawfeer-online-system.git app
+git clone https://github.com/omardes2/pluto-brand.git app
 cd app
 git checkout main        # or the released tag
 ```
 
-Point the domain's **Document Root** (cPanel → Domains) to `/home/tawfeer/app/public`.
+Point the domain's **Document Root** (cPanel → Domains) to `/home/pluto-brand/app/public`.
 
 > If the panel forces docroot to `public_html`, either symlink
-> `ln -s /home/tawfeer/app/public /home/tawfeer/public_html` (after emptying it) or
+> `ln -s /home/pluto-brand/app/public /home/pluto-brand/public_html` (after emptying it) or
 > place the app in `public_html`'s parent and set docroot to `.../public`.
 
 ---
@@ -94,7 +94,7 @@ php artisan key:generate --force
 ## 4. Database
 
 ```bash
-# In cPanel → MySQL Databases: create DB `tawfeer_prod` + user, grant ALL.
+# In cPanel → MySQL Databases: create DB `pluto-brand_prod` + user, grant ALL.
 # Put those in .env (DB_DATABASE/DB_USERNAME/DB_PASSWORD), then:
 php artisan migrate --force --seed
 ```
@@ -144,13 +144,13 @@ php artisan event:cache
 Queued marketing sends (`SendCampaignMessageJob`) run on a worker.
 
 ```bash
-# Copy and edit deploy/supervisor/tawfeer-worker.conf, replacing <USER>/<APP_PATH>:
-cp deploy/supervisor/tawfeer-worker.conf /etc/supervisord.d/tawfeer-worker.ini
-# edit /etc/supervisord.d/tawfeer-worker.ini  (USER=tawfeer, APP_PATH=/home/tawfeer/app)
-supervisorctl reread && supervisorctl update && supervisorctl start tawfeer-worker:*
+# Copy and edit deploy/supervisor/pluto-brand-worker.conf, replacing <USER>/<APP_PATH>:
+cp deploy/supervisor/pluto-brand-worker.conf /etc/supervisord.d/pluto-brand-worker.ini
+# edit /etc/supervisord.d/pluto-brand-worker.ini  (USER=pluto-brand, APP_PATH=/home/pluto-brand/app)
+supervisorctl reread && supervisorctl update && supervisorctl start pluto-brand-worker:*
 ```
 
-If Supervisor is unavailable, use the cron fallback in `deploy/cron/tawfeer-crontab.txt`.
+If Supervisor is unavailable, use the cron fallback in `deploy/cron/pluto-brand-crontab.txt`.
 
 **After every code deploy:** `php artisan queue:restart` (workers reload code).
 
@@ -160,7 +160,7 @@ If Supervisor is unavailable, use the cron fallback in `deploy/cron/tawfeer-cron
 
 Add ONE cron entry (cPanel → Cron Jobs, or `crontab -e`):
 ```
-* * * * * cd /home/tawfeer/app && php artisan schedule:run >> /dev/null 2>&1
+* * * * * cd /home/pluto-brand/app && php artisan schedule:run >> /dev/null 2>&1
 ```
 This drives `marketing:run-birthdays` (daily 09:00), `marketing:run-abandoned-carts`
 (hourly), and — when enabled in `.env` — `delivery:sync` / `delivery:escalate-exceptions`.
@@ -187,7 +187,7 @@ This drives `marketing:run-birthdays` (daily 09:00), `marketing:run-abandoned-ca
   (returns `{status:ok, service, time}`). Point Hostinger/UptimeRobot at
   `https://your-domain.com/api/v1/health`.
 - **Queue health:** `php artisan queue:failed` should stay empty; alert if
-  `failed_jobs` grows. `supervisorctl status tawfeer-worker:*` = RUNNING.
+  `failed_jobs` grows. `supervisorctl status pluto-brand-worker:*` = RUNNING.
 - **Scheduler health:** confirm the cron runs (`storage/logs/` activity; or
   `php artisan schedule:list`).
 - **Logs:** `storage/logs/laravel-YYYY-MM-DD.log` (daily channel, `LOG_LEVEL=warning`).
@@ -198,8 +198,8 @@ This drives `marketing:run-birthdays` (daily 09:00), `marketing:run-abandoned-ca
 
 `LOG_CHANNEL=daily` keeps 14 files by default. Optionally add OS-level rotation:
 ```
-# /etc/logrotate.d/tawfeer
-/home/tawfeer/app/storage/logs/*.log {
+# /etc/logrotate.d/pluto-brand
+/home/pluto-brand/app/storage/logs/*.log {
     daily
     rotate 14
     compress

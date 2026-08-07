@@ -55,8 +55,8 @@ class ClearDemoDataTest extends TestCase
         $this->assertSame(0, JournalEntry::count());
 
         // البنية الأساسية محفوظة.
-        $this->assertNotNull(User::where('email', 'admin@tawfeer.online')->first());
-        $this->assertNull(User::where('email', 'sales@tawfeer.online')->first()); // موظف ديمو حُذف
+        $this->assertNotNull(User::where('email', 'admin@pluto-brand.com')->first());
+        $this->assertNull(User::where('email', 'sales@pluto-brand.com')->first()); // موظف ديمو حُذف
         $this->assertGreaterThan(0, Warehouse::count());
         $this->assertGreaterThan(0, PaymentMethod::count());
         $this->assertNotNull(Treasury::where('code', 'CB-MAIN')->first());

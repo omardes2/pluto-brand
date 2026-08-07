@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================================
-# Tawfeer Online — FIRST deploy of the app onto a provisioned VPS.
+# Pluto Brand — FIRST deploy of the app onto a provisioned VPS.
 # Run as the DEPLOY_USER (not root):  bash deploy/deploy.sh
 #
 # - Clones the repo into APP_PATH if empty (or uses the existing checkout)

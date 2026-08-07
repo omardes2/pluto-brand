@@ -50,7 +50,7 @@ class FoundationTest extends TestCase
     public function test_admin_has_role_and_permissions(): void
     {
         // المبدأ 12: RBAC.
-        $admin = User::where('email', 'admin@tawfeer.online')->first();
+        $admin = User::where('email', 'admin@pluto-brand.com')->first();
 
         $this->assertTrue($admin->hasRole('admin'));
         $this->assertTrue($admin->can('settings.manage'));

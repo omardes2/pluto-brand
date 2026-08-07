@@ -1,6 +1,6 @@
 <div dir="rtl">
 
-# التنقّل وهندسة المعلومات للواجهة — Tawfeer Online (RTL)
+# التنقّل وهندسة المعلومات للواجهة — Pluto Brand (RTL)
 
 هذا المستند يعرّف **بنية التنقّل (Navigation) وهندسة المعلومات (IA)** للواجهات، بالعربية أساسًا (RTL) والإنجليزية ثانويًا. ملزِم ومتوافق مع [`ARCHITECTURE.md`](../ARCHITECTURE.md)، و[`DECISIONS.md`](./DECISIONS.md)، وعقد الـ API في [`API_CONTRACT.md`](./API_CONTRACT.md).
 

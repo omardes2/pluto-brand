@@ -1,6 +1,6 @@
 <div dir="rtl">
 
-# تصميم التقارير — Tawfeer Online (Reports Design)
+# تصميم التقارير — Pluto Brand (Reports Design)
 
 **الوحدة:** Reports (المرحلة 10 — التقارير والتحليلات)
 **الحالة:** تصميم (Design) — لا كود، لا هجرات، لا نماذج.

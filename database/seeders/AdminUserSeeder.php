@@ -19,7 +19,7 @@ class AdminUserSeeder extends Seeder
         $branch = Branch::default();
 
         $admin = User::query()->firstOrCreate(
-            ['email' => 'admin@tawfeer.online'],
+            ['email' => 'admin@pluto-brand.com'],
             [
                 'name' => 'مدير النظام',
                 'password' => Hash::make('password'),

@@ -2,7 +2,7 @@
 
 # مصفوفة الاعتمادات وسير الموافقات — Approval Workflows
 
-**المشروع:** Tawfeer Online — ERP + CRM + E‑Commerce + Inventory + Purchasing + Accounting + Affiliate + Omnichannel
+**المشروع:** Pluto Brand — ERP + CRM + E‑Commerce + Inventory + Purchasing + Accounting + Affiliate + Omnichannel
 **الحالة:** تصميم مُعتمَد (Phase 2 يؤسِّس البنية، Phase 3+ تُنفِّذ سير الطلبات/المرتجعات/العمولات)
 **المصادر الملزِمة:** [`ARCHITECTURE.md`](../ARCHITECTURE.md) (المبادئ الـ14) · [`DECISIONS.md`](./DECISIONS.md) (ADRs) · [`FOUNDATION_REPORT.md`](./FOUNDATION_REPORT.md) (الأدوار)
 

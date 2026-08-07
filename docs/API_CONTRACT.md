@@ -1,6 +1,6 @@
 <div dir="rtl">
 
-# عقد الـ API — Tawfeer Online (`/api/v1`)
+# عقد الـ API — Pluto Brand (`/api/v1`)
 
 هذا المستند يعرّف **عقد REST API** للمشروع: القواعد الموحّدة (Conventions) ونقاط النهاية (Endpoints) لكيانات **المرحلة 2 (27 كيانًا)**. هو ملزِم لكل الوحدات ويتوافق مع [`ARCHITECTURE.md`](../ARCHITECTURE.md) (المبادئ 14) و[`DECISIONS.md`](./DECISIONS.md) (المصدر الوحيد للحقيقة).
 

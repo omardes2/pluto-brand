@@ -13,7 +13,7 @@
 /* ==========================================================================
    Admin design system — reusable component classes.
    Applied globally so existing admin tables/forms/buttons inherit a
-   consistent look without rewriting every page. Tawfeer-green accent,
+   consistent look without rewriting every page. Pluto Brand-green accent,
    light-gray canvas, subtle borders + shadows, rounded cards.
    ========================================================================== */
 @layer components {
@@ -52,7 +52,7 @@
     .admin-scroll::-webkit-scrollbar-track { background: transparent; }
 }
 
-/* Nudge legacy inline indigo focus/controls toward the Tawfeer-green accent
+/* Nudge legacy inline indigo focus/controls toward the Pluto Brand-green accent
    without touching every Blade file. (Utility classes still win where present;
    this covers native/unstyled controls and any missed spots.) */
 @layer base {

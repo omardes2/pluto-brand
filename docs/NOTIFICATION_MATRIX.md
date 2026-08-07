@@ -2,7 +2,7 @@
 
 # مصفوفة الإشعارات — Notification Matrix
 
-**المشروع:** Tawfeer Online — ERP + CRM + E‑Commerce + Inventory + Purchasing + Accounting + Affiliate + Omnichannel
+**المشروع:** Pluto Brand — ERP + CRM + E‑Commerce + Inventory + Purchasing + Accounting + Affiliate + Omnichannel
 **الحالة:** تصميم — القنوات الأساسية في Phase 2، القنوات الخارجية (WhatsApp/SMS/Push) في Phase 3+
 **المصادر الملزِمة:** [`ARCHITECTURE.md`](../ARCHITECTURE.md) · [`DECISIONS.md`](./DECISIONS.md) · [`FOUNDATION_REPORT.md`](./FOUNDATION_REPORT.md) · [`APPROVAL_WORKFLOWS.md`](./APPROVAL_WORKFLOWS.md)
 

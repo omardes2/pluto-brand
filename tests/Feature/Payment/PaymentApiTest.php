@@ -32,7 +32,7 @@ class PaymentApiTest extends TestCase
 
     private function admin(): User
     {
-        return User::where('email', 'admin@tawfeer.online')->first();
+        return User::where('email', 'admin@pluto-brand.com')->first();
     }
 
     private function withRole(string $role): User

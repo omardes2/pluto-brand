@@ -36,7 +36,7 @@ class GoodsReceiptApiTest extends TestCase
 
     private function admin(): User
     {
-        return User::where('email', 'admin@tawfeer.online')->first();
+        return User::where('email', 'admin@pluto-brand.com')->first();
     }
 
     private function approvedOrder(float $qty = 100, float $cost = 10): PurchaseOrder

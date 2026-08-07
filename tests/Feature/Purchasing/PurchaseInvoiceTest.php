@@ -138,7 +138,7 @@ class PurchaseInvoiceTest extends TestCase
         $this->assertSame(0, Category::count());
 
         $supplier = Supplier::factory()->create();
-        $admin = User::where('email', 'admin@tawfeer.online')->first();
+        $admin = User::where('email', 'admin@pluto-brand.com')->first();
 
         $this->actingAs($admin)->post(route('admin.purchasing.invoices.store'), [
             'supplier_id' => $supplier->id,

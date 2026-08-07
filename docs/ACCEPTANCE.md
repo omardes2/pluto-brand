@@ -1,4 +1,4 @@
-# Acceptance Coverage — Tawfeer Online
+# Acceptance Coverage — Pluto Brand
 
 Maps each required end-to-end workflow to the automated test(s) that exercise it.
 The full suite (`php artisan test`) runs on an in-memory SQLite DB seeded by

@@ -1,6 +1,6 @@
 <div dir="rtl">
 
-# كتالوج أحداث الدومين (Domain Events Catalog) — Tawfeer Online
+# كتالوج أحداث الدومين (Domain Events Catalog) — Pluto Brand
 
 > **الحالة:** وثيقة تصميم. لا يوجد **أي** مستمع (Listener) أو مهمة مطابورة (Queued Job) منفّذ فعليًا الآن؛ هذا الكتالوج يُلزم التنفيذ في المراحل 2–5.
 >

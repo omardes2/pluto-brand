@@ -185,7 +185,7 @@ class StorefrontCatalogTest extends TestCase
     public function test_authenticated_user_can_add_storefront_product_to_cart(): void
     {
         $product = $this->product();
-        Sanctum::actingAs(User::where('email', 'admin@tawfeer.online')->first());
+        Sanctum::actingAs(User::where('email', 'admin@pluto-brand.com')->first());
 
         $this->postJson('/api/v1/store/cart/items',
             ['variant' => $product->defaultVariant->uuid, 'qty' => 1],

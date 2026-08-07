@@ -1,6 +1,6 @@
 <div dir="rtl">
 
-# النشر والتشغيل — Tawfeer Online
+# النشر والتشغيل — Pluto Brand
 
 دليل تهيئة بيئات التطوير والإنتاج ونشر المنصة.
 
@@ -29,8 +29,8 @@
 
 ```bash
 # 1) استنساخ المشروع
-git clone https://github.com/omardes2/tawfeer-online-system.git
-cd tawfeer-online-system
+git clone https://github.com/omardes2/pluto-brand.git
+cd pluto-brand
 
 # 2) الاعتماديات
 composer install
@@ -53,7 +53,7 @@ npm run dev            # مراقبة الأصول
 ## 3. متغيّرات البيئة الأساسية (`.env`)
 
 ```dotenv
-APP_NAME="Tawfeer Online"
+APP_NAME="Pluto Brand"
 APP_ENV=local            # production في الإنتاج
 APP_KEY=                 # يُولّد بـ php artisan key:generate
 APP_DEBUG=true           # false في الإنتاج
@@ -64,7 +64,7 @@ APP_FALLBACK_LOCALE=en
 DB_CONNECTION=mysql
 DB_HOST=127.0.0.1
 DB_PORT=3306
-DB_DATABASE=tawfeer
+DB_DATABASE=pluto-brand
 DB_USERNAME=root
 DB_PASSWORD=
 
@@ -113,7 +113,7 @@ php artisan queue:restart
   ```
 - **Queue Worker:** شغّله عبر Supervisor:
   ```ini
-  [program:tawfeer-worker]
+  [program:pluto-brand-worker]
   command=php /path/to/app/artisan queue:work redis --sleep=3 --tries=3
   autostart=true
   autorestart=true

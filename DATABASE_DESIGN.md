@@ -1,6 +1,6 @@
 <div dir="rtl">
 
-# تصميم قاعدة البيانات — Tawfeer Online
+# تصميم قاعدة البيانات — Pluto Brand
 
 > قاعدة البيانات: **MySQL 8** — محرك InnoDB، ترميز `utf8mb4_unicode_ci`.
 > جميع الجداول تحوي `id` (BIGINT، مفتاح أساسي داخلي)، و`created_at` / `updated_at`، و`deleted_at` عند الحاجة للحذف الناعم (Soft Delete).

@@ -22,7 +22,7 @@ class SupplierApiTest extends TestCase
 
     private function admin(): User
     {
-        return User::where('email', 'admin@tawfeer.online')->first();
+        return User::where('email', 'admin@pluto-brand.com')->first();
     }
 
     public function test_create_supplier_with_contacts_enforces_single_primary(): void

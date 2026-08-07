@@ -1,5 +1,5 @@
 {{--
-    Admin sidebar — RTL, dark charcoal, Tawfeer-green accent.
+    Admin sidebar — RTL, dark charcoal, Pluto Brand-green accent.
     Permission-gated (only shows links the user can access), collapsible to
     icons-only (persisted), off-canvas drawer on mobile, active highlighting,
     expandable groups that auto-open when a child route is active.
@@ -121,7 +121,7 @@
     {{-- Brand --}}
     <div class="flex items-center gap-3 h-16 px-4 border-b border-white/10 shrink-0">
         <span class="grid place-items-center w-9 h-9 rounded-lg bg-emerald-500 text-white font-bold text-lg shrink-0">ت</span>
-        <span class="font-bold text-white text-lg whitespace-nowrap" x-show="!collapsed" x-transition.opacity>توفير أونلاين</span>
+        <span class="font-bold text-white text-lg whitespace-nowrap" x-show="!collapsed" x-transition.opacity>Pluto Brand</span>
     </div>
 
     {{-- Nav --}}

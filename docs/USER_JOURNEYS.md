@@ -1,6 +1,6 @@
 <div dir="rtl">
 
-# رحلات المستخدمين (User Journeys) — Tawfeer Online
+# رحلات المستخدمين (User Journeys) — Pluto Brand
 
 > **وثيقة توثيقية فقط (Documentation Only).** لا تحوي كودًا ولا هجرات. تلتزم بالكامل بـ [`ARCHITECTURE.md`](../ARCHITECTURE.md) (المبادئ الـ14) و [`docs/DECISIONS.md`](DECISIONS.md) (المصدر الوحيد للحقيقة — ADRs والمفردات القانونية) و [`REQUIREMENTS.md`](../REQUIREMENTS.md) و [`docs/FOUNDATION_REPORT.md`](FOUNDATION_REPORT.md).
 >
@@ -482,7 +482,7 @@
 **الدور:** `admin` (كل الصلاحيات `*`). **المرحلة:** Phase 1 (منجزة) وتمتد لكل المراحل.
 
 ### نقطة البداية
-لوحة الإدارة الكاملة بعد الدخول كـ `admin@tawfeer.online` (بيانات تطوير فقط).
+لوحة الإدارة الكاملة بعد الدخول كـ `admin@pluto-brand.com` (بيانات تطوير فقط).
 
 ### الخطوات
 1. إدارة المستخدمين والأدوار والصلاحيات (`users.*`, `roles.manage`) — RBAC لا أسماء (المبدأ 12).

@@ -1,6 +1,6 @@
 <div dir="rtl">
 
-# معمارية النمو وذكاء التجارة (Growth & Commerce Architecture) — Tawfeer Online
+# معمارية النمو وذكاء التجارة (Growth & Commerce Architecture) — Pluto Brand
 
 > **الحالة:** توجيه معماري للجاهزية المستقبلية فقط. **لا يوجد أي تنفيذ لأي ميزة نمو في هذا الإصدار.**
 >

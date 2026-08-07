@@ -22,7 +22,7 @@ class BrandApiTest extends TestCase
 
     private function admin(): User
     {
-        return User::where('email', 'admin@tawfeer.online')->first();
+        return User::where('email', 'admin@pluto-brand.com')->first();
     }
 
     public function test_sales_cannot_create_brand(): void

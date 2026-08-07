@@ -1,7 +1,7 @@
 # ============================================================================
-# Tawfeer Online — cron entries (production).
+# Pluto Brand — cron entries (production).
 # Add via `crontab -e` for the deploy user, or cPanel → Cron Jobs.
-# Replace <APP_PATH> with the real path (e.g. /home/tawfeer/app).
+# Replace <APP_PATH> with the real path (e.g. /home/pluto-brand/app).
 # ============================================================================
 
 # 1) Laravel scheduler — the ONLY cron Laravel needs. It internally runs:
@@ -12,6 +12,6 @@
 * * * * * cd <APP_PATH> && php artisan schedule:run >> /dev/null 2>&1
 
 # 2) Queue worker fallback (ONLY if Supervisor is NOT available on the host).
-#    Prefer Supervisor (deploy/supervisor/tawfeer-worker.conf). This cron
+#    Prefer Supervisor (deploy/supervisor/pluto-brand-worker.conf). This cron
 #    processes any pending jobs each minute and exits, so jobs are not stuck.
 # * * * * * cd <APP_PATH> && php artisan queue:work redis --stop-when-empty --max-time=55 --tries=3 >> storage/logs/worker.log 2>&1

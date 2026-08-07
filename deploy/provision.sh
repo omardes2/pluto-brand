@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================================
-# Tawfeer Online — server provisioning for a FRESH Ubuntu 24.04 VPS.
+# Pluto Brand — server provisioning for a FRESH Ubuntu 24.04 VPS.
 # Installs & configures: Nginx, PHP-FPM (+extensions), Composer, MariaDB,
 # Redis, Supervisor, Node.js LTS, Git, UFW firewall.
 #
@@ -50,7 +50,7 @@ sed -i 's/^;\?upload_max_filesize\s*=.*/upload_max_filesize = 25M/'    "$PHP_INI
 sed -i 's/^;\?post_max_size\s*=.*/post_max_size = 30M/'                "$PHP_INI"
 sed -i 's/^;\?max_execution_time\s*=.*/max_execution_time = 60/'       "$PHP_INI"
 # OPcache for production
-cat > /etc/php/${PHP_VERSION}/fpm/conf.d/99-tawfeer-opcache.ini <<'OPC'
+cat > /etc/php/${PHP_VERSION}/fpm/conf.d/99-pluto-brand-opcache.ini <<'OPC'
 opcache.enable=1
 opcache.enable_cli=0
 opcache.memory_consumption=256
@@ -138,11 +138,11 @@ chown -R "${DEPLOY_USER}:www-data" "${APP_PATH}"
 
 # ---------------------------------------------------------------------------
 log "PHP-FPM pool (runs as ${DEPLOY_USER}, socket group www-data)"
-POOL="/etc/php/${PHP_VERSION}/fpm/pool.d/tawfeer.conf"
+POOL="/etc/php/${PHP_VERSION}/fpm/pool.d/pluto-brand.conf"
 sed -e "s|<DEPLOY_USER>|${DEPLOY_USER}|g" \
     -e "s|<PHP_VERSION>|${PHP_VERSION}|g" \
     -e "s|<APP_PATH>|${APP_PATH}|g" \
-    "${HERE}/php/tawfeer-fpm.conf" > "$POOL"
+    "${HERE}/php/pluto-brand-fpm.conf" > "$POOL"
 # Disable the default pool to avoid a stray www.sock
 [[ -f "/etc/php/${PHP_VERSION}/fpm/pool.d/www.conf" ]] && mv "/etc/php/${PHP_VERSION}/fpm/pool.d/www.conf" "/etc/php/${PHP_VERSION}/fpm/pool.d/www.conf.disabled" || true
 systemctl enable --now "php${PHP_VERSION}-fpm"
@@ -150,24 +150,24 @@ systemctl restart "php${PHP_VERSION}-fpm"
 
 # ---------------------------------------------------------------------------
 log "Nginx virtual host"
-VHOST="/etc/nginx/sites-available/tawfeer.conf"
+VHOST="/etc/nginx/sites-available/pluto-brand.conf"
 sed -e "s|<DOMAIN>|${DOMAIN}|g" \
     -e "s|<DOMAIN_ALIASES>|${DOMAIN_ALIASES:-}|g" \
     -e "s|<APP_PATH>|${APP_PATH}|g" \
     -e "s|<PHP_VERSION>|${PHP_VERSION}|g" \
-    "${HERE}/nginx/tawfeer.conf" > "$VHOST"
-ln -sf "$VHOST" /etc/nginx/sites-enabled/tawfeer.conf
+    "${HERE}/nginx/pluto-brand.conf" > "$VHOST"
+ln -sf "$VHOST" /etc/nginx/sites-enabled/pluto-brand.conf
 rm -f /etc/nginx/sites-enabled/default
 nginx -t
 systemctl reload nginx
 
 # ---------------------------------------------------------------------------
 log "Supervisor queue workers"
-WORKER="/etc/supervisor/conf.d/tawfeer-worker.conf"
+WORKER="/etc/supervisor/conf.d/pluto-brand-worker.conf"
 sed -e "s|<DEPLOY_USER>|${DEPLOY_USER}|g" \
     -e "s|<APP_PATH>|${APP_PATH}|g" \
     -e "s|<WORKER_PROCS>|${WORKER_PROCS:-2}|g" \
-    "${HERE}/supervisor/tawfeer-worker.conf" > "$WORKER"
+    "${HERE}/supervisor/pluto-brand-worker.conf" > "$WORKER"
 supervisorctl reread || true
 supervisorctl update || true
 

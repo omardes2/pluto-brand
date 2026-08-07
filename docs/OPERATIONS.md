@@ -1,4 +1,4 @@
-# Operations & Data Integrity — Tawfeer Online
+# Operations & Data Integrity — Pluto Brand
 
 Backup/restore, database indexes, append-only ledgers, and the single-business /
 single-main-warehouse invariants. Companion to `docs/PRODUCTION_DEPLOYMENT.md`.
@@ -10,14 +10,14 @@ single-main-warehouse invariants. Companion to `docs/PRODUCTION_DEPLOYMENT.md`.
 ### 1.1 Database (nightly)
 ```bash
 #!/usr/bin/env bash
-# /home/tawfeer/bin/backup-db.sh  — schedule via cron at 02:30 daily.
+# /home/pluto-brand/bin/backup-db.sh  — schedule via cron at 02:30 daily.
 set -euo pipefail
-APP=/home/tawfeer/app
+APP=/home/pluto-brand/app
 cd "$APP"
 DB=$(php -r '$e=parse_ini_file(".env"); echo $e["DB_DATABASE"];')
 USER=$(php -r '$e=parse_ini_file(".env"); echo $e["DB_USERNAME"];')
 PASS=$(php -r '$e=parse_ini_file(".env"); echo $e["DB_PASSWORD"];')
-OUT=/home/tawfeer/backups
+OUT=/home/pluto-brand/backups
 mkdir -p "$OUT"
 STAMP=$(date +%Y%m%d-%H%M)
 mysqldump --single-transaction --quick --routines --triggers \
@@ -25,13 +25,13 @@ mysqldump --single-transaction --quick --routines --triggers \
 # retain 14 days
 find "$OUT" -name 'db-*.sql.gz' -mtime +14 -delete
 ```
-Cron: `30 2 * * * /home/tawfeer/bin/backup-db.sh >> /home/tawfeer/backups/backup.log 2>&1`
+Cron: `30 2 * * * /home/pluto-brand/bin/backup-db.sh >> /home/pluto-brand/backups/backup.log 2>&1`
 
 ### 1.2 Uploads
 Product/return images live on the `public` disk (`storage/app/public`). Back them up
 with the DB:
 ```bash
-tar czf /home/tawfeer/backups/uploads-$(date +%Y%m%d).tgz -C /home/tawfeer/app storage/app/public
+tar czf /home/pluto-brand/backups/uploads-$(date +%Y%m%d).tgz -C /home/pluto-brand/app storage/app/public
 ```
 
 ### 1.3 Secrets
@@ -48,10 +48,10 @@ Copy `db-*.sql.gz` + `uploads-*.tgz` to Hostinger snapshots or object storage ni
 ```bash
 php artisan down
 # DB
-gunzip < /home/tawfeer/backups/db-YYYYMMDD-HHMM.sql.gz | \
+gunzip < /home/pluto-brand/backups/db-YYYYMMDD-HHMM.sql.gz | \
   mysql -u"$USER" -p"$PASS" "$DB"
 # uploads
-tar xzf /home/tawfeer/backups/uploads-YYYYMMDD.tgz -C /home/tawfeer/app
+tar xzf /home/pluto-brand/backups/uploads-YYYYMMDD.tgz -C /home/pluto-brand/app
 php artisan config:cache && php artisan up
 # verify
 php artisan migrate:status        # all "Ran"
@@ -138,7 +138,7 @@ new settlement line), never by editing history.
 
 ## 7. Queue & scheduler health
 
-- Worker: `supervisorctl status tawfeer-worker:*` → RUNNING; `queue:failed` empty.
+- Worker: `supervisorctl status pluto-brand-worker:*` → RUNNING; `queue:failed` empty.
 - Failed job retry: `php artisan queue:retry all`.
 - Scheduler: `php artisan schedule:list` shows birthdays (daily 09:00), abandoned-carts
   (hourly), delivery sync/escalation (when enabled), and `shipping:dispatch-pending`

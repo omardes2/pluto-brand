@@ -30,12 +30,12 @@ class UserManagementTest extends TestCase
     public function test_admin_can_create_employee_with_role_and_profile(): void
     {
         $this->actingAs($this->actor('admin'))->post(route('admin.users.store'), [
-            'name' => 'موظّف مبيعات', 'email' => 'emp@tawfeer.test', 'phone' => '966500009999',
+            'name' => 'موظّف مبيعات', 'email' => 'emp@pluto-brand.test', 'phone' => '966500009999',
             'department' => 'المبيعات', 'job_title' => 'مندوب', 'role' => 'sales',
             'is_active' => 1, 'password' => 'secret123', 'password_confirmation' => 'secret123',
         ])->assertRedirect(route('admin.users.index'));
 
-        $user = User::where('email', 'emp@tawfeer.test')->first();
+        $user = User::where('email', 'emp@pluto-brand.test')->first();
         $this->assertNotNull($user);
         $this->assertSame('المبيعات', $user->department);
         $this->assertSame('مندوب', $user->job_title);

@@ -19,7 +19,7 @@ class WarehouseLocationApiTest extends TestCase
     {
         parent::setUp();
         $this->seed(DatabaseSeeder::class);
-        Sanctum::actingAs(User::where('email', 'admin@tawfeer.online')->first());
+        Sanctum::actingAs(User::where('email', 'admin@pluto-brand.com')->first());
     }
 
     private function warehouse(): Warehouse

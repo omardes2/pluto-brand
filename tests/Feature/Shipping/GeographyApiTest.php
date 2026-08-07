@@ -24,7 +24,7 @@ class GeographyApiTest extends TestCase
 
     private function admin(): User
     {
-        return User::where('email', 'admin@tawfeer.online')->first();
+        return User::where('email', 'admin@pluto-brand.com')->first();
     }
 
     public function test_geography_hierarchy_is_seeded_and_readable(): void

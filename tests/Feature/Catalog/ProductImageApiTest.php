@@ -26,7 +26,7 @@ class ProductImageApiTest extends TestCase
 
     private function admin(): User
     {
-        return User::where('email', 'admin@tawfeer.online')->first();
+        return User::where('email', 'admin@pluto-brand.com')->first();
     }
 
     public function test_first_uploaded_image_becomes_primary_and_is_stored(): void

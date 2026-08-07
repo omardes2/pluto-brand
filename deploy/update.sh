@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================================
-# Tawfeer Online — routine update / redeploy.
+# Pluto Brand — routine update / redeploy.
 # Run as the DEPLOY_USER from APP_PATH:  bash deploy/update.sh
 #
 # Wraps the exact update flow:

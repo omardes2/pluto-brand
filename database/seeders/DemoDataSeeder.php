@@ -115,11 +115,11 @@ class DemoDataSeeder extends Seeder
 
         // ─── الموظفون ─────────────────────────────────────────────
         $employees = [
-            ['أحمد المدير', 'manager@tawfeer.online', 'manager'],
-            ['سارة المبيعات', 'sales@tawfeer.online', 'sales'],
-            ['خالد المحاسب', 'accountant@tawfeer.online', 'accountant'],
-            ['ليلى المستودع', 'warehouse@tawfeer.online', 'warehouse'],
-            ['عمر التوصيل', 'delivery@tawfeer.online', 'delivery_ops'],
+            ['أحمد المدير', 'manager@pluto-brand.com', 'manager'],
+            ['سارة المبيعات', 'sales@pluto-brand.com', 'sales'],
+            ['خالد المحاسب', 'accountant@pluto-brand.com', 'accountant'],
+            ['ليلى المستودع', 'warehouse@pluto-brand.com', 'warehouse'],
+            ['عمر التوصيل', 'delivery@pluto-brand.com', 'delivery_ops'],
         ];
         foreach ($employees as [$name, $email, $role]) {
             $u = User::firstOrCreate(
@@ -283,7 +283,7 @@ class DemoDataSeeder extends Seeder
             $svc = app(VoucherService::class);
             $cb = Treasury::where('code', 'CB-MAIN')->first();
             $bnk = Treasury::where('code', 'BNK-MAIN')->first();
-            $admin = User::where('email', 'admin@tawfeer.online')->first();
+            $admin = User::where('email', 'admin@pluto-brand.com')->first();
             if (! $cb || ! $admin) {
                 return;
             }
@@ -319,7 +319,7 @@ class DemoDataSeeder extends Seeder
         $safe('marketing', function () {
             $tpl = CampaignTemplate::create([
                 'name' => 'ترحيب بالعميل', 'channel' => 'whatsapp',
-                'body_ar' => 'مرحبًا بك في توفير أونلاين!', 'body_en' => 'Welcome to Tawfeer Online!', 'is_active' => true,
+                'body_ar' => 'مرحبًا بك في Pluto Brand!', 'body_en' => 'Welcome to Pluto Brand!', 'is_active' => true,
             ]);
             CampaignTemplate::create([
                 'name' => 'عربة متروكة', 'channel' => 'whatsapp',

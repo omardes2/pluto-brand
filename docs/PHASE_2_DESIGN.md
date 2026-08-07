@@ -2,7 +2,7 @@
 
 # تصميم قاعدة البيانات — المرحلة 2 (Catalog + Inventory + Geography)
 
-**المشروع:** Tawfeer Online — Laravel 13.19 / PHP 8.4 / MySQL 8 (InnoDB, `utf8mb4_unicode_ci`)
+**المشروع:** Pluto Brand — Laravel 13.19 / PHP 8.4 / MySQL 8 (InnoDB, `utf8mb4_unicode_ci`)
 **الحالة:** تصميم تفصيلي للمرحلة 2 فقط (27 كيانًا).
 **المرجعية المُلزِمة:** [`ARCHITECTURE.md`](../ARCHITECTURE.md) (المبادئ 1–14) + [`docs/DECISIONS.md`](DECISIONS.md) (ADR-001 → ADR-020). أي تعارض يُحسم لصالح `DECISIONS.md`.
 **المكمِّل:** [`docs/DATA_DICTIONARY.md`](DATA_DICTIONARY.md) — قاموس بيانات مسطّح لكل الأعمدة (نفس الأسماء والأنواع).

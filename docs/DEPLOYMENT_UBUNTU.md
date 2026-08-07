@@ -1,8 +1,8 @@
-<!-- Ubuntu 24.04 production deployment runbook for Tawfeer Online. -->
+<!-- Ubuntu 24.04 production deployment runbook for Pluto Brand. -->
 
 # Deployment Runbook — Ubuntu 24.04 VPS (Hostinger)
 
-Complete, production-grade deployment of **Tawfeer Online** onto a fresh Ubuntu 24.04 server, driven by the automation in `deploy/`. Everything (secrets, domain, DB creds) is parameterized in a single **server-side** file `deploy/deploy.env` that is never committed.
+Complete, production-grade deployment of **Pluto Brand** onto a fresh Ubuntu 24.04 server, driven by the automation in `deploy/`. Everything (secrets, domain, DB creds) is parameterized in a single **server-side** file `deploy/deploy.env` that is never committed.
 
 > **Stack installed:** Nginx · PHP 8.3-FPM (+ mysql, redis, mbstring, xml, curl, bcmath, gd, zip, intl, gmp, soap, opcache) · Composer · MariaDB 10.11 · Redis (auth + LRU) · Supervisor · Node.js 22 LTS · Git · UFW firewall · Certbot.
 
@@ -20,8 +20,8 @@ SSH in as root (or a sudo user) and pull the repo once to get `deploy/`:
 
 ```bash
 sudo apt-get update && sudo apt-get install -y git
-sudo git clone https://github.com/omardes2/tawfeer-online-system.git /var/www/tawfeer
-cd /var/www/tawfeer
+sudo git clone https://github.com/omardes2/pluto-brand.git /var/www/pluto-brand
+cd /var/www/pluto-brand
 ```
 
 ## 2. Configure parameters (secrets stay on the server)
@@ -41,12 +41,12 @@ This installs and configures **everything in section 0**: PHP-FPM pool, Nginx vh
 Switch to the deploy user and run the first-deploy script:
 ```bash
 sudo -iu deployer          # the DEPLOY_USER from deploy.env
-cd /var/www/tawfeer
+cd /var/www/pluto-brand
 bash deploy/deploy.sh
 ```
 On the **first run** it creates `.env` from `deploy/env/.env.production.example` (with DB/Redis/URL pre-filled), generates `APP_KEY`, then **stops** so you can add the remaining secrets:
 ```bash
-nano /var/www/tawfeer/.env   # MAIL_*, OPENAI_API_KEY, GOOGLE_*/FACEBOOK_*, payment/messaging tokens
+nano /var/www/pluto-brand/.env   # MAIL_*, OPENAI_API_KEY, GOOGLE_*/FACEBOOK_*, payment/messaging tokens
 ```
 Then run it again to finish (composer, `npm ci && npm run build`, migrate, storage link, permissions, optimize, start workers):
 ```bash
@@ -66,7 +66,7 @@ Auto-renewal is installed by default (`systemctl status certbot.timer`).
 ## 6. Verify
 ```bash
 sudo systemctl status nginx php8.3-fpm mariadb redis-server supervisor --no-pager
-sudo supervisorctl status tawfeer-worker:*        # workers RUNNING
+sudo supervisorctl status pluto-brand-worker:*        # workers RUNNING
 crontab -u deployer -l | grep schedule:run        # scheduler present
 curl -I https://example.com                        # 200/301, HSTS after TLS
 php artisan about                                  # env=production, debug=false, cache=redis
@@ -75,7 +75,7 @@ php artisan about                                  # env=production, debug=false
 ---
 
 ## 7. Routine updates (the only commands you need)
-From `/var/www/tawfeer` as the deploy user:
+From `/var/www/pluto-brand` as the deploy user:
 ```bash
 bash deploy/update.sh
 ```
@@ -103,10 +103,10 @@ php artisan optimize
 | `deploy/provision.sh` | Idempotent server provisioning (packages, firewall, services, configs). |
 | `deploy/deploy.sh` | First app deploy (clone, env, build, migrate, optimize, workers). |
 | `deploy/update.sh` | Routine redeploy wrapping `git pull → … → optimize`. |
-| `deploy/nginx/tawfeer.conf` | Nginx vhost (gzip, static caching, security headers, PHP-FPM, hidden-file deny, SSL-ready). |
-| `deploy/php/tawfeer-fpm.conf` | Dedicated PHP-FPM pool (runs as deploy user, socket group `www-data`, OPcache, tuned `pm`). |
-| `deploy/supervisor/tawfeer-worker.conf` | Redis queue workers under Supervisor. |
-| `deploy/cron/tawfeer-crontab.txt` | Reference for the scheduler cron (installed automatically by provision.sh). |
+| `deploy/nginx/pluto-brand.conf` | Nginx vhost (gzip, static caching, security headers, PHP-FPM, hidden-file deny, SSL-ready). |
+| `deploy/php/pluto-brand-fpm.conf` | Dedicated PHP-FPM pool (runs as deploy user, socket group `www-data`, OPcache, tuned `pm`). |
+| `deploy/supervisor/pluto-brand-worker.conf` | Redis queue workers under Supervisor. |
+| `deploy/cron/pluto-brand-crontab.txt` | Reference for the scheduler cron (installed automatically by provision.sh). |
 | `deploy/env/.env.production.example` | Production `.env` template (APP_ENV=production, debug off, secure cookies, Redis cache/queue). |
 
 ---
@@ -133,4 +133,4 @@ php artisan migrate --force        # only if the newer migration is backward-com
 npm ci && npm run build
 php artisan optimize && php artisan queue:restart
 ```
-Always take a DB dump before a release: `mysqldump -u tawfeer -p tawfeer > backup-$(date +%F).sql`.
+Always take a DB dump before a release: `mysqldump -u pluto-brand -p pluto-brand > backup-$(date +%F).sql`.

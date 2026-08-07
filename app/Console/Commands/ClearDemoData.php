@@ -61,8 +61,8 @@ class ClearDemoData extends Command
 
     /** إيميلات موظفي الديمو (تُحذف)؛ المدير وأي مستخدم آخر يبقى. */
     private const DEMO_EMPLOYEE_EMAILS = [
-        'manager@tawfeer.online', 'sales@tawfeer.online', 'accountant@tawfeer.online',
-        'warehouse@tawfeer.online', 'delivery@tawfeer.online',
+        'manager@pluto-brand.com', 'sales@pluto-brand.com', 'accountant@pluto-brand.com',
+        'warehouse@pluto-brand.com', 'delivery@pluto-brand.com',
     ];
 
     public function handle(): int

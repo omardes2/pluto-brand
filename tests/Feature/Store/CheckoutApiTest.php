@@ -32,7 +32,7 @@ class CheckoutApiTest extends TestCase
 
     private function admin(): User
     {
-        return User::where('email', 'admin@tawfeer.online')->first();
+        return User::where('email', 'admin@pluto-brand.com')->first();
     }
 
     private function sellableVariant(float $retail = 40, ?float $promo = null, float $stock = 10): ProductVariant

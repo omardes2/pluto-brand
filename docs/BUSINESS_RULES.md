@@ -1,8 +1,8 @@
 <div dir="rtl">
 
-# قواعد العمل (Business Rules) — Tawfeer Online
+# قواعد العمل (Business Rules) — Pluto Brand
 
-هذا المستند يوثّق **قواعد العمل الملزِمة** لمنصّة Tawfeer Online بنطاقها الكامل (E-Commerce + ERP + CRM + Inventory + Purchasing + Accounting + Marketer/Commission + Omnichannel). القواعد مرقّمة لكل مجال (`BR-<AREA>-##`) لتُرجَع إليها من بقية الوثائق والكود والاختبارات.
+هذا المستند يوثّق **قواعد العمل الملزِمة** لمنصّة Pluto Brand بنطاقها الكامل (E-Commerce + ERP + CRM + Inventory + Purchasing + Accounting + Marketer/Commission + Omnichannel). القواعد مرقّمة لكل مجال (`BR-<AREA>-##`) لتُرجَع إليها من بقية الوثائق والكود والاختبارات.
 
 > **التبعية للمصدر:** هذا الملف يلتزم حرفيًا بـ [`ARCHITECTURE.md`](../ARCHITECTURE.md) (المبادئ الـ14) و[`docs/DECISIONS.md`](DECISIONS.md) (قرارات ADR والمفردات القانونية). **أي تعارض يُحسم لصالح `DECISIONS.md`**. لا يجوز لأي قاعدة هنا اختراع مفتاح حالة خارج القوائم القانونية في `DECISIONS.md`؛ وأي حاجة لقرار غير مُغطّى تُدرَج في قسم **«أسئلة مفتوحة»** في نهاية الملف بدل اختراع حالة.
 
