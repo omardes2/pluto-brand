@@ -2,7 +2,7 @@
 
 // Storefront UI strings (English). No hardcoded strings in templates (Phase 3.3).
 return [
-    'site_name' => 'Tawfeer Online',
+    'site_name' => 'Pluto Brand',
     'tagline' => 'Everything you need in one place',
     'currency' => '₪',
 

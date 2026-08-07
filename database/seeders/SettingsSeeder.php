@@ -13,12 +13,14 @@ class SettingsSeeder extends Seeder
     public function run(): void
     {
         $defaults = [
-            ['key' => 'store.name', 'value' => 'توفير أونلاين', 'group' => 'store'],
-            ['key' => 'store.email', 'value' => 'hello@tawfeer.online', 'group' => 'store'],
+            ['key' => 'store.name', 'value' => 'Pluto Brand', 'group' => 'store'],
+            ['key' => 'store.email', 'value' => 'hello@pluto-brand.com', 'group' => 'store'],
             // بيانات تظهر على الفواتير (تُحرَّر من الإعدادات).
             ['key' => 'store.address', 'value' => '', 'group' => 'store'],
             ['key' => 'store.phone', 'value' => '', 'group' => 'store'],
             ['key' => 'store.tax_number', 'value' => '', 'group' => 'store'],
+            // شعار المتجر (مسار/رابط) — يظهر على الواجهة والفواتير، يُحرَّر من الإعدادات.
+            ['key' => 'store.logo', 'value' => '', 'group' => 'store'],
             ['key' => 'store.currency', 'value' => 'ILS', 'group' => 'store'],
             ['key' => 'store.currency_symbol', 'value' => '₪', 'group' => 'store'],
             ['key' => 'store.default_locale', 'value' => 'ar', 'group' => 'localization'],

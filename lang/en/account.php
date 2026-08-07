@@ -106,7 +106,7 @@ return [
     'mark_read' => 'Mark as read',
     'mark_all_read' => 'Mark all as read',
     'notifications_all_read' => 'All notifications marked as read.',
-    'welcome_title' => 'Welcome to Tawfeer Online',
+    'welcome_title' => 'Welcome to Pluto Brand',
     'welcome_body' => 'Your account was created successfully. Enjoy a smooth shopping experience.',
 
     // Auth / identity (Phase 3.5)

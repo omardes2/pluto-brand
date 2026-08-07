@@ -106,7 +106,7 @@ return [
     'mark_read' => 'تعليم كمقروء',
     'mark_all_read' => 'تعليم الكل كمقروء',
     'notifications_all_read' => 'تم تعليم كل الإشعارات كمقروءة.',
-    'welcome_title' => 'مرحبًا بك في توفير أونلاين',
+    'welcome_title' => 'مرحبًا بك في Pluto Brand',
     'welcome_body' => 'تم إنشاء حسابك بنجاح. تسوّق واستمتع بتجربة سلسة.',
 
     // مصادقة/هوية (Phase 3.5)
