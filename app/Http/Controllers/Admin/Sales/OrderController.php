@@ -13,6 +13,7 @@ use App\Modules\Foundation\Models\Area;
 use App\Modules\Foundation\Models\City;
 use App\Modules\Foundation\Models\DeliveryCityRate;
 use App\Modules\Foundation\Models\Warehouse;
+use App\Modules\Foundation\Services\Settings;
 use App\Modules\Inventory\Models\InventoryStock;
 use App\Modules\Inventory\Services\InventoryService;
 use App\Modules\Sales\Models\Order;
@@ -228,6 +229,12 @@ class OrderController extends Controller
                 ->where('is_active', true)->whereNotNull('gl_account_id')
                 ->orderByDesc('is_default')->orderBy('type')->orderBy('name')
                 ->get(['id', 'name', 'type']),
+            // الخزينة المُقترحة مسبقًا حسب قناة الطلب (يُطبّقها الخادم إلزاميًا للويب/نقطة البيع).
+            'preselectTreasuryId' => match ($order->channel) {
+                'web' => $this->onlineTreasuryId(),
+                'pos' => $this->cashierTreasuryId(),
+                default => null,
+            },
         ]);
     }
 
@@ -413,13 +420,45 @@ class OrderController extends Controller
             'treasury_id' => ['required', 'integer', 'exists:treasuries,id'],
         ]);
 
+        // توجيه التحصيل حسب قناة الطلب: طلبات الموقع → صندوق الأون لاين،
+        // طلبات نقطة البيع → صندوق الكاشير. القنوات الأخرى تُترك لاختيار المستخدم.
+        $treasuryId = match ($order->channel) {
+            'web' => $this->onlineTreasuryId() ?? (int) $data['treasury_id'],
+            'pos' => $this->cashierTreasuryId() ?? (int) $data['treasury_id'],
+            default => (int) $data['treasury_id'],
+        };
+
         try {
-            $orderPayments->collect($order, (int) $data['treasury_id'], (float) $data['amount']);
+            $orderPayments->collect($order, $treasuryId, (float) $data['amount']);
         } catch (ValidationException $e) {
             return back()->with('error', collect($e->errors())->flatten()->first());
         }
 
         return back()->with('success', __('تم تحصيل الدفعة وترحيلها محاسبيًا.'));
+    }
+
+    /**
+     * صندوق الأون لاين (لتحصيل طلبات الموقع) — يُضبط من إعدادات النظام.
+     * يعود null إن لم يُضبط أو لم يعد صالحًا (صندوق نشط مربوط بحساب GL).
+     */
+    private function onlineTreasuryId(): ?int
+    {
+        $id = (int) Settings::get('sales.online_treasury_id');
+        if ($id <= 0) {
+            return null;
+        }
+
+        return Treasury::where('id', $id)->where('is_active', true)
+            ->whereNotNull('gl_account_id')->value('id');
+    }
+
+    /**
+     * صندوق الكاشير (لتحصيل طلبات نقطة البيع) — الصندوق النقدي الافتراضي النشط المربوط بحساب GL.
+     */
+    private function cashierTreasuryId(): ?int
+    {
+        return Treasury::where('type', 'cash')->where('is_active', true)
+            ->whereNotNull('gl_account_id')->orderByDesc('is_default')->value('id');
     }
 
     /** حذف الطلب — مسموح فقط إذا كانت حالته «ملغى» وحالة توصيله «ملغاة». */

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin\Settings;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Accounting\Models\Treasury;
 use App\Modules\Foundation\Services\SystemSettingsService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
@@ -40,6 +41,7 @@ class SettingsController extends Controller
         'opost_base_url' => 'opost.base_url',
         'opost_api_key' => 'opost.api_key',
         'opost_webhook_secret' => 'opost.webhook_secret',
+        'sales_online_treasury_id' => 'sales.online_treasury_id',
         'seo_meta_title' => 'seo.meta_title',
         'seo_meta_description' => 'seo.meta_description',
         'system_maintenance' => 'system.maintenance',
@@ -63,6 +65,10 @@ class SettingsController extends Controller
         return view('admin.settings.edit', [
             'values' => $values,
             'timezones' => timezone_identifiers_list(),
+            // خزائن نقدية نشطة مربوطة بحساب GL — لاختيار صندوق تحصيل طلبات الموقع.
+            'treasuries' => Treasury::query()
+                ->where('type', 'cash')->where('is_active', true)->whereNotNull('gl_account_id')
+                ->orderByDesc('is_default')->orderBy('name')->get(['id', 'name']),
         ]);
     }
 
@@ -91,6 +97,7 @@ class SettingsController extends Controller
             'opost_base_url' => ['nullable', 'url', 'max:250'],
             'opost_api_key' => ['nullable', 'string', 'max:200'],
             'opost_webhook_secret' => ['nullable', 'string', 'max:200'],
+            'sales_online_treasury_id' => ['nullable', 'integer', 'exists:treasuries,id'],
             'seo_meta_title' => ['nullable', 'string', 'max:70'],
             'seo_meta_description' => ['nullable', 'string', 'max:180'],
             'system_maintenance' => ['nullable', 'boolean'],

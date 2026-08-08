@@ -8,6 +8,7 @@ return [
     'tab_email' => 'Email',
     'tab_whatsapp' => 'WhatsApp',
     'tab_delivery' => 'Delivery',
+    'tab_sales' => 'Sales',
     'tab_seo' => 'SEO',
     'tab_system' => 'System',
 
@@ -32,6 +33,10 @@ return [
 
     'default_fee' => 'Default delivery fee',
     'free_threshold' => 'Free-shipping threshold',
+
+    'online_treasury' => 'Online-orders collection cashbox',
+    'online_treasury_none' => '— Default cash cashbox —',
+    'online_treasury_hint' => 'Website order payments are collected into this cashbox. POS payments stay in the cashier cashbox.',
 
     'meta_title' => 'Default meta title',
     'meta_description' => 'Default meta description',

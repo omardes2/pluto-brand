@@ -181,7 +181,7 @@
                         <select name="treasury_id" required>
                             <option value="">{{ __('— اختر الخزينة/الحساب —') }}</option>
                             @foreach ($treasuries as $t)
-                                <option value="{{ $t->id }}">{{ $t->name }}</option>
+                                <option value="{{ $t->id }}" @selected(($preselectTreasuryId ?? null) === $t->id)>{{ $t->name }}</option>
                             @endforeach
                         </select>
 

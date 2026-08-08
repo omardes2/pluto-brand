@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Modules\Accounting\Models\FinancialVoucher;
 use App\Modules\Accounting\Models\JournalEntry;
 use App\Modules\Accounting\Models\Treasury;
+use App\Modules\Accounting\Services\TreasuryService;
 use App\Modules\Catalog\Models\Product;
 use App\Modules\Crm\Models\Customer;
 use App\Modules\Foundation\Models\Area;
@@ -16,6 +17,7 @@ use App\Modules\Foundation\Models\DeliveryCityRate;
 use App\Modules\Foundation\Models\DeliveryProvider;
 use App\Modules\Foundation\Models\Governorate;
 use App\Modules\Foundation\Models\Warehouse;
+use App\Modules\Foundation\Services\Settings;
 use App\Modules\Inventory\Models\InventoryStock;
 use App\Modules\Inventory\Services\InventoryService;
 use App\Modules\Sales\Models\Order;
@@ -422,6 +424,76 @@ class SalesAdminWebTest extends TestCase
             'amount' => 30, 'treasury_id' => $treasury->id,
         ])->assertRedirect()->assertSessionHas('success');
         $this->assertSame('paid', $order->fresh()->payment_status);
+    }
+
+    /** صندوق أون لاين نقدي مستقل عن صندوق الكاشير (لاختبار التوجيه). */
+    private function onlineCashbox(): Treasury
+    {
+        return app(TreasuryService::class)->create([
+            'code' => 'CB-ONLINE', 'name' => 'صندوق الاون لاين', 'type' => 'cash', 'currency' => 'ILS',
+        ]);
+    }
+
+    /** طلب موقع إلكتروني (channel=web) مؤكَّد بمديونية قائمة (COD 1050) جاهز للتحصيل. */
+    private function makeWebOrder(array $items): Order
+    {
+        config()->set('shipping.provider', 'null'); // لا إرسال خارجي عند التأكيد.
+        $warehouse = Warehouse::where('code', 'WH-MAIN')->firstOrFail();
+        $geo = $this->geo();
+
+        $order = app(OrderService::class)->create([
+            'branch_id' => Branch::default()->id, 'warehouse_id' => $warehouse->id,
+            'customer_name' => 'زبون الموقع', 'customer_phone' => '0599000000',
+            'city_id' => $geo['city_id'], 'area_id' => $geo['area_id'], 'shipping_address' => $geo['shipping_address'],
+            'channel' => 'web',
+        ], $items, 2026);
+        app(OrderService::class)->confirm($order);
+
+        return $order->fresh();
+    }
+
+    /** تحصيل طلب الموقع يُرحَّل إلزاميًا إلى صندوق الأون لاين المضبوط في الإعدادات — حتى لو أُرسل صندوق آخر. */
+    public function test_web_order_payment_routes_to_online_treasury(): void
+    {
+        $warehouse = Warehouse::where('code', 'WH-MAIN')->firstOrFail();
+        $variant = Product::factory()->create()->defaultVariant;
+        app(InventoryService::class)->receive($variant, $warehouse, 10, 5);
+
+        $online = $this->onlineCashbox();
+        Settings::set('sales.online_treasury_id', (string) $online->id, 'sales');
+
+        $order = $this->makeWebOrder([['variant_id' => $variant->id, 'qty' => 2, 'unit_price' => 30]]);
+        $cashier = Treasury::where('code', 'CB-MAIN')->firstOrFail();
+
+        // نُرسل صندوق الكاشير عمدًا؛ يجب أن يُحوّله الخادم إلى صندوق الأون لاين.
+        $this->actingAs($this->admin())->post(route('admin.sales.orders.settle', $order), [
+            'amount' => (float) $order->total, 'treasury_id' => $cashier->id,
+        ])->assertRedirect()->assertSessionHas('success');
+
+        $voucher = FinancialVoucher::where('kind', 'receipt')->where('reference', $order->number)->firstOrFail();
+        $this->assertSame($online->id, $voucher->treasury_id);
+    }
+
+    /** تحصيل طلب نقطة البيع يبقى إلزاميًا في صندوق الكاشير — حتى لو أُرسل صندوق الأون لاين. */
+    public function test_pos_order_payment_routes_to_cashier_treasury(): void
+    {
+        $warehouse = Warehouse::where('code', 'WH-MAIN')->firstOrFail();
+        $variant = Product::factory()->create()->defaultVariant;
+        app(InventoryService::class)->receive($variant, $warehouse, 10, 5);
+
+        $online = $this->onlineCashbox();
+        Settings::set('sales.online_treasury_id', (string) $online->id, 'sales');
+
+        $order = $this->makePosOrder([['variant_id' => $variant->id, 'qty' => 2, 'unit_price' => 30]], ['customer_name' => 'زبون نقطة بيع']);
+        $cashier = Treasury::where('code', 'CB-MAIN')->firstOrFail();
+
+        // نُرسل صندوق الأون لاين عمدًا؛ يجب أن يُبقيه الخادم في صندوق الكاشير.
+        $this->actingAs($this->admin())->post(route('admin.sales.orders.settle', $order), [
+            'amount' => (float) $order->total, 'treasury_id' => $online->id,
+        ])->assertRedirect()->assertSessionHas('success');
+
+        $voucher = FinancialVoucher::where('kind', 'receipt')->where('reference', $order->number)->firstOrFail();
+        $this->assertSame($cashier->id, $voucher->treasury_id);
     }
 
     /** الدفعة الجزئية متاحة الآن لطلبات التوصيل العادية (لا مبيعات مباشرة فقط). */

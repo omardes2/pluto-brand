@@ -6,7 +6,7 @@
 
             {{-- تبويبات --}}
             <div class="flex flex-wrap gap-1 border-b mb-6 -mx-2 px-2 overflow-x-auto">
-                @foreach (['general' => 'settings.tab_general', 'openai' => 'settings.tab_openai', 'email' => 'settings.tab_email', 'whatsapp' => 'settings.tab_whatsapp', 'delivery' => 'settings.tab_delivery', 'seo' => 'settings.tab_seo', 'system' => 'settings.tab_system'] as $key => $label)
+                @foreach (['general' => 'settings.tab_general', 'openai' => 'settings.tab_openai', 'email' => 'settings.tab_email', 'whatsapp' => 'settings.tab_whatsapp', 'delivery' => 'settings.tab_delivery', 'sales' => 'settings.tab_sales', 'seo' => 'settings.tab_seo', 'system' => 'settings.tab_system'] as $key => $label)
                     <button type="button" @click="tab = '{{ $key }}'" :class="tab === '{{ $key }}' ? 'border-emerald-600 text-emerald-600' : 'border-transparent text-gray-500'" class="px-3 py-2 text-sm border-b-2 whitespace-nowrap">{{ __($label) }}</button>
                 @endforeach
             </div>
@@ -73,6 +73,19 @@
                     <x-admin.field label="Opost Base URL" name="opost_base_url"><input type="url" name="opost_base_url" value="{{ old('opost_base_url', $values['opost_base_url']) }}" class="w-full rounded-md border-gray-300" /></x-admin.field>
                     <x-admin.field label="Opost API Key" name="opost_api_key"><input type="password" name="opost_api_key" placeholder="{{ $values['opost_api_key'] ? __('settings.secret_set') : __('settings.secret_unset') }}" autocomplete="new-password" class="w-full rounded-md border-gray-300" /></x-admin.field>
                     <x-admin.field label="Opost Webhook Secret" name="opost_webhook_secret"><input type="password" name="opost_webhook_secret" placeholder="{{ $values['opost_webhook_secret'] ? __('settings.secret_set') : __('settings.secret_unset') }}" autocomplete="new-password" class="w-full rounded-md border-gray-300" /></x-admin.field>
+                </div>
+
+                {{-- المبيعات / توجيه الصناديق --}}
+                <div x-show="tab === 'sales'" x-cloak class="space-y-4">
+                    <x-admin.field :label="__('settings.online_treasury')" name="sales_online_treasury_id">
+                        <select name="sales_online_treasury_id" class="w-full rounded-md border-gray-300">
+                            <option value="">{{ __('settings.online_treasury_none') }}</option>
+                            @foreach ($treasuries as $t)
+                                <option value="{{ $t->id }}" @selected((string) old('sales_online_treasury_id', $values['sales_online_treasury_id']) === (string) $t->id)>{{ $t->name }}</option>
+                            @endforeach
+                        </select>
+                        <p class="text-xs text-gray-500 mt-1">{{ __('settings.online_treasury_hint') }}</p>
+                    </x-admin.field>
                 </div>
 
                 {{-- SEO --}}

@@ -8,6 +8,7 @@ return [
     'tab_email' => 'البريد',
     'tab_whatsapp' => 'واتساب',
     'tab_delivery' => 'التوصيل',
+    'tab_sales' => 'المبيعات',
     'tab_seo' => 'SEO',
     'tab_system' => 'النظام',
 
@@ -32,6 +33,10 @@ return [
 
     'default_fee' => 'رسوم التوصيل الافتراضية',
     'free_threshold' => 'عتبة الشحن المجاني',
+
+    'online_treasury' => 'صندوق تحصيل طلبات الموقع (الأون لاين)',
+    'online_treasury_none' => '— الصندوق النقدي الافتراضي —',
+    'online_treasury_hint' => 'تُحصَّل دفعات طلبات الموقع الإلكتروني في هذا الصندوق. دفعات نقطة البيع تبقى في صندوق الكاشير.',
 
     'meta_title' => 'عنوان Meta الافتراضي',
     'meta_description' => 'وصف Meta الافتراضي',
