@@ -23,7 +23,7 @@ class SellRequest extends FormRequest
             'items.*.unit_price' => ['required', 'numeric', 'min:0'],
             'items.*.discount' => ['nullable', 'numeric', 'min:0'],
             'discount' => ['nullable', 'numeric', 'min:0'],
-            'payment_method' => ['required', 'in:cash,card'],
+            'payment_method' => ['required', 'in:cash,card,credit'],
             'paid' => ['nullable', 'numeric', 'min:0'],
             'customer_id' => ['nullable', 'integer', 'exists:customers,id'],
             'customer_name' => ['nullable', 'string', 'max:180'],

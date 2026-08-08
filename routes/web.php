@@ -335,6 +335,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::post('expense-types', [PosReportController::class, 'saveExpenseTypes'])->name('expense_types.save')->middleware('can:pos.reports.view');
         Route::get('products', [PosController::class, 'products'])->name('products')->middleware('can:pos.sell');
         Route::get('barcode', [PosController::class, 'barcode'])->name('barcode')->middleware('can:pos.sell');
+        Route::get('customers', [PosController::class, 'customers'])->name('customers')->middleware('can:pos.sell');
         Route::post('sell', [PosController::class, 'sell'])->name('sell')->middleware('can:pos.sell');
         Route::get('receipt/{order}', [PosController::class, 'receipt'])->name('receipt')->middleware('can:pos.view');
         Route::get('return/lookup', [PosController::class, 'returnLookup'])->name('return.lookup')->middleware('can:pos.refund');

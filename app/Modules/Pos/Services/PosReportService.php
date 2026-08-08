@@ -151,22 +151,24 @@ class PosReportService
 
         $cash = $sumOf(PosShiftMovement::TYPE_CASH_SALE);
         $card = $sumOf(PosShiftMovement::TYPE_CARD_SALE);
+        $credit = $sumOf(PosShiftMovement::TYPE_CREDIT_SALE);
         $expenses = $sumOf(PosShiftMovement::TYPE_PAY_OUT);
         $refunds = $sumOf(PosShiftMovement::TYPE_REFUND);
         $payIn = $sumOf(PosShiftMovement::TYPE_PAY_IN);
 
         $orders = $group
-            ->whereIn('type', [PosShiftMovement::TYPE_CASH_SALE, PosShiftMovement::TYPE_CARD_SALE])
+            ->whereIn('type', [PosShiftMovement::TYPE_CASH_SALE, PosShiftMovement::TYPE_CARD_SALE, PosShiftMovement::TYPE_CREDIT_SALE])
             ->pluck('order_id')->filter()->unique()->count();
 
         $row = [
             'orders' => $orders,
-            'total_sales' => round($cash + $card, 2),
+            'total_sales' => round($cash + $card + $credit, 2),
             'cash' => round($cash, 2),
             'card' => round($card, 2),
+            'credit' => round($credit, 2),
             'expenses' => round($expenses, 2),
             'refunds' => round($refunds, 2),
-            // الرصيد النهائي = صافي النقد الناتج = نقدي + إيداعات − مصروفات − مرتجعات نقدية.
+            // الرصيد النهائي = صافي النقد الناتج = نقدي + إيداعات − مصروفات − مرتجعات نقدية (الذمم لا تدخل النقد).
             'net' => round($cash + $payIn - $expenses - $refunds, 2),
         ];
 

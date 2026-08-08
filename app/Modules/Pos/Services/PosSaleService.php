@@ -39,8 +39,11 @@ class PosSaleService
         }
 
         $method = $payload['payment_method'] ?? 'cash';
-        if (! in_array($method, ['cash', 'card'], true)) {
-            throw ValidationException::withMessages(['payment_method' => __('طريقة الدفع يجب أن تكون نقدي أو بطاقة.')]);
+        if (! in_array($method, ['cash', 'card', 'credit'], true)) {
+            throw ValidationException::withMessages(['payment_method' => __('طريقة الدفع يجب أن تكون نقدي أو بطاقة أو آجل.')]);
+        }
+        if ($method === 'credit' && empty($payload['customer_id'])) {
+            throw ValidationException::withMessages(['customer_id' => __('البيع الآجل (ذمم) يتطلّب اختيار عميل مسجّل.')]);
         }
 
         $items = $this->applyOrderDiscount($payload['items'] ?? [], (float) ($payload['discount'] ?? 0));
@@ -78,10 +81,12 @@ class PosSaleService
             $this->orders->fulfillDirect($order);
             $order->refresh();
 
-            // تحصيل كامل المبلغ في صندوق الوردية.
-            $this->payments->collect($order, $shift->treasury_id, (float) $order->total);
+            // تحصيل كامل المبلغ في صندوق الوردية — عدا الآجل (ذمم) فيبقى غير مدفوع على حساب العميل.
+            if ($method !== 'credit') {
+                $this->payments->collect($order, $shift->treasury_id, (float) $order->total);
+            }
 
-            // تسجيل حركة الدرج وتحديث أرصدة الوردية.
+            // تسجيل حركة الدرج وتحديث أرصدة الوردية (الآجل يُسجَّل كـ credit_sale بلا أثر نقدي).
             $this->shifts->recordSale($shift->fresh(), $order->fresh(), $method);
 
             return $order->fresh(['items']);

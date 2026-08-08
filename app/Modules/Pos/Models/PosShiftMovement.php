@@ -23,6 +23,8 @@ class PosShiftMovement extends Model
 
     public const TYPE_CARD_SALE = 'card_sale';
 
+    public const TYPE_CREDIT_SALE = 'credit_sale';
+
     public const TYPE_REFUND = 'refund';
 
     public const TYPE_PAY_IN = 'pay_in';

@@ -24,6 +24,7 @@
                     ['إجمالي المبيعات', $t['total_sales'], 'text-gray-800'],
                     ['المدفوعات النقدية', $t['cash'], 'text-emerald-700'],
                     ['المدفوعات بالبطاقة', $t['card'], 'text-sky-700'],
+                    ['الذمم (آجل)', $t['credit'], 'text-amber-700'],
                     ['المصروفات', $t['expenses'], 'text-red-700'],
                     ['الفواتير', $t['orders'], 'text-gray-800'],
                     ['الرصيد النهائي (صافي النقد)', $t['net'], 'text-emerald-700'],
@@ -47,6 +48,7 @@
                             <th class="text-end">{{ __('إجمالي المبيعات') }}</th>
                             <th class="text-end">{{ __('نقدي') }}</th>
                             <th class="text-end">{{ __('بطاقة') }}</th>
+                            <th class="text-end">{{ __('الذمم') }}</th>
                             <th class="text-end">{{ __('المصروفات') }}</th>
                             <th class="text-end">{{ __('الرصيد النهائي') }}</th>
                         </tr>
@@ -59,11 +61,12 @@
                                 <td class="px-4 py-2.5 text-end tabular-nums font-bold">{{ $m($day['total_sales']) }}</td>
                                 <td class="px-4 py-2.5 text-end tabular-nums text-emerald-700">{{ $m($day['cash']) }}</td>
                                 <td class="px-4 py-2.5 text-end tabular-nums text-sky-700">{{ $m($day['card']) }}</td>
+                                <td class="px-4 py-2.5 text-end tabular-nums text-amber-700">{{ $m($day['credit']) }}</td>
                                 <td class="px-4 py-2.5 text-end tabular-nums text-red-700">{{ $m($day['expenses']) }}</td>
                                 <td class="px-4 py-2.5 text-end tabular-nums font-bold">{{ $m($day['net']) }}</td>
                             </tr>
                         @empty
-                            <tr><td colspan="7" class="text-center text-gray-400 py-8">{{ __('لا توجد بيانات في هذه الفترة') }}</td></tr>
+                            <tr><td colspan="8" class="text-center text-gray-400 py-8">{{ __('لا توجد بيانات في هذه الفترة') }}</td></tr>
                         @endforelse
                     </tbody>
                 </table>

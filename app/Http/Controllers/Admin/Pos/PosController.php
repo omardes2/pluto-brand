@@ -11,6 +11,7 @@ use App\Http\Requests\Pos\RefundRequest;
 use App\Http\Requests\Pos\SellRequest;
 use App\Http\Requests\Pos\ShiftMovementRequest;
 use App\Models\User;
+use App\Modules\Crm\Models\Customer;
 use App\Modules\Foundation\Models\Warehouse;
 use App\Modules\Foundation\Services\Settings;
 use App\Modules\Pos\Models\PosShift;
@@ -163,6 +164,23 @@ class PosController extends Controller
         }
 
         return response()->json(['product' => $item]);
+    }
+
+    /** بحث العملاء المسجّلين (للبيع الآجل/ذمم أو ربط الفاتورة بعميل). */
+    public function customers(Request $request): JsonResponse
+    {
+        $q = trim((string) $request->query('q'));
+
+        $customers = Customer::query()
+            ->where('is_blocked', false)->whereNull('merged_into_id')
+            ->when($q !== '', fn ($query) => $query->where(fn ($w) => $w
+                ->where('name', 'like', "%{$q}%")
+                ->orWhere('primary_phone', 'like', "%{$q}%")))
+            ->orderBy('name')->limit(10)
+            ->get(['id', 'name', 'primary_phone'])
+            ->map(fn ($c) => ['id' => $c->id, 'name' => $c->name, 'phone' => $c->primary_phone]);
+
+        return response()->json(['customers' => $customers]);
     }
 
     public function sell(SellRequest $request): JsonResponse

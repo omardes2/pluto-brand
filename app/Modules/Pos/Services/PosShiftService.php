@@ -150,7 +150,11 @@ class PosShiftService
     {
         return DB::transaction(function () use ($shift, $order, $method) {
             $amount = (float) $order->total;
-            $type = $method === 'card' ? PosShiftMovement::TYPE_CARD_SALE : PosShiftMovement::TYPE_CASH_SALE;
+            $type = match ($method) {
+                'card' => PosShiftMovement::TYPE_CARD_SALE,
+                'credit' => PosShiftMovement::TYPE_CREDIT_SALE,
+                default => PosShiftMovement::TYPE_CASH_SALE,
+            };
 
             $movement = $shift->movements()->create([
                 'type' => $type,
@@ -160,14 +164,14 @@ class PosShiftService
                 'created_by' => auth()->id(),
             ]);
 
-            if ($method === 'card') {
-                $shift->card_sales = (float) $shift->card_sales + $amount;
-            } else {
-                $shift->cash_sales = (float) $shift->cash_sales + $amount;
-            }
+            match ($method) {
+                'card' => $shift->card_sales = (float) $shift->card_sales + $amount,
+                'credit' => $shift->credit_sales = (float) $shift->credit_sales + $amount,
+                default => $shift->cash_sales = (float) $shift->cash_sales + $amount,
+            };
             $shift->total_sales = (float) $shift->total_sales + $amount;
             $shift->orders_count = (int) $shift->orders_count + 1;
-            $shift->expected_cash = $this->computeExpectedCash($shift);
+            $shift->expected_cash = $this->computeExpectedCash($shift); // الذمم/البطاقة لا تدخل الدرج
             $shift->save();
 
             return $movement;

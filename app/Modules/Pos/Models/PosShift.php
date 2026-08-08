@@ -29,7 +29,7 @@ class PosShift extends Model
 
     protected $fillable = [
         'number', 'branch_id', 'warehouse_id', 'treasury_id', 'user_id', 'status',
-        'opening_float', 'cash_sales', 'card_sales', 'cash_refunds', 'total_sales', 'total_refunds',
+        'opening_float', 'cash_sales', 'card_sales', 'credit_sales', 'cash_refunds', 'total_sales', 'total_refunds',
         'expected_cash', 'counted_cash', 'variance', 'orders_count',
         'opened_at', 'closed_at', 'notes', 'created_by',
     ];
@@ -38,6 +38,7 @@ class PosShift extends Model
         'opening_float' => 'decimal:2',
         'cash_sales' => 'decimal:2',
         'card_sales' => 'decimal:2',
+        'credit_sales' => 'decimal:2',
         'cash_refunds' => 'decimal:2',
         'total_sales' => 'decimal:2',
         'total_refunds' => 'decimal:2',

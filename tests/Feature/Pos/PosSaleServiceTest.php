@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Modules\Accounting\Models\Treasury;
 use App\Modules\Catalog\Models\Product;
 use App\Modules\Catalog\Models\ProductVariant;
+use App\Modules\Crm\Models\Customer;
 use App\Modules\Foundation\Models\Branch;
 use App\Modules\Foundation\Models\Warehouse;
 use App\Modules\Inventory\Models\InventoryStock;
@@ -133,6 +134,40 @@ class PosSaleServiceTest extends TestCase
         $this->assertEquals(200.0, (float) $order->subtotal);
         $this->assertEquals(30.0, (float) $order->discount_total);
         $this->assertEquals(170.0, (float) $order->total);
+    }
+
+    public function test_credit_sale_creates_unpaid_order_on_customer(): void
+    {
+        $shift = $this->openShift(100);
+        $customer = Customer::factory()->create(['branch_id' => Branch::default()->id]);
+
+        $order = $this->service()->sell($shift, [
+            'items' => [['variant_id' => $this->variant->id, 'qty' => 2, 'unit_price' => 20]],
+            'payment_method' => 'credit',
+            'customer_id' => $customer->id,
+        ]);
+
+        $this->assertSame($customer->id, $order->customer_id);
+        $this->assertSame('delivered', $order->status);
+        $this->assertNotSame('paid', $order->payment_status); // ذمم غير مدفوعة
+        $this->assertEquals(0.0, (float) $order->amount_paid);
+
+        $shift->refresh();
+        $this->assertEquals(40.0, (float) $shift->credit_sales);
+        $this->assertEquals(0.0, (float) $shift->cash_sales);
+        $this->assertEquals(100.0, (float) $shift->expected_cash); // الآجل لا يدخل الدرج
+        $this->assertSame(PosShiftMovement::TYPE_CREDIT_SALE, $shift->movements()->first()->type);
+    }
+
+    public function test_credit_requires_customer(): void
+    {
+        $shift = $this->openShift();
+
+        $this->expectException(ValidationException::class);
+        $this->service()->sell($shift, [
+            'items' => [['variant_id' => $this->variant->id, 'qty' => 1, 'unit_price' => 20]],
+            'payment_method' => 'credit',
+        ]);
     }
 
     public function test_cannot_sell_below_wholesale_price(): void

@@ -100,7 +100,8 @@
   .trow b{color:var(--text);font-weight:700}
   .trow.grand{font-size:20px;padding-top:8px;margin-top:2px;border-top:1px dashed var(--border)}
   .trow.grand span{font-weight:800;color:var(--text)}.trow.grand b{color:var(--accent-strong);font-weight:800}
-  .pay-methods{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+  .pay-methods{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .pm.disabled{opacity:.4;cursor:not-allowed}
   .pm{border:1.5px solid var(--border);background:var(--surface);color:var(--muted);border-radius:11px;padding:10px 4px;cursor:pointer;
     font-weight:700;font-size:13px;display:flex;flex-direction:column;align-items:center;gap:5px}
   .pm.active{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-strong)}
@@ -196,8 +197,11 @@
     <div class="ticket">
       <div class="ticket-head">
         <div class="ticket-top"><div class="tno">{{ __('فاتورة') }} <span x-text="ticketNo"></span></div></div>
-        <div class="customer"><div class="ci">👤</div>
-          <div class="cd"><b x-text="custName"></b><span>{{ __('عميل نقدي') }}</span></div></div>
+        <div class="customer" x-on:click="openCustomer()" style="cursor:pointer">
+          <div class="ci">👤</div>
+          <div class="cd"><b x-text="custName"></b><span x-text="customerId ? '{{ __('عميل مسجّل — اضغط للتغيير') }}' : '{{ __('عميل نقدي — اضغط لاختيار عميل') }}'"></span></div>
+          <button x-show="customerId" class="chg" x-on:click.stop="resetCustomer()" style="border:none;background:none;cursor:pointer">{{ __('إزالة') }}</button>
+        </div>
       </div>
 
       <div class="lines">
@@ -229,6 +233,7 @@
         <div class="pay-methods">
           <div class="pm" :class="method==='cash' && 'active'" x-on:click="method='cash'">💵 {{ __('نقدي') }}</div>
           <div class="pm" :class="method==='card' && 'active'" x-on:click="method='card'">💳 {{ __('بطاقة') }}</div>
+          <div class="pm" :class="{'active': method==='credit', 'disabled': !customerId}" x-on:click="customerId ? method='credit' : toast('{{ __('اختر عميلًا أولًا للبيع الآجل') }}')">📒 {{ __('آجل') }}</div>
         </div>
         <div x-show="method==='cash'">
           <div class="cash-in"><input x-model.number="tendered" type="number" min="0" placeholder="{{ __('المبلغ المدفوع') }}" inputmode="decimal"></div>
@@ -244,7 +249,7 @@
         </div>
         <div class="actions">
           <button class="btn btn-pay" :disabled="cart.length===0 || busy" x-on:click="pay()">
-            <span x-show="!busy">{{ __('تحصيل ودفع') }} · <span class="tnum" x-text="money(total)"></span></span>
+            <span x-show="!busy"><span x-text="method==='credit' ? '{{ __('بيع آجل (ذمم)') }}' : '{{ __('تحصيل ودفع') }}'"></span> · <span class="tnum" x-text="money(total)"></span></span>
             <span x-show="busy">{{ __('جارٍ…') }}</span>
           </button>
           <button class="btn btn-ghost" x-on:click="clearCart()" title="{{ __('إلغاء الفاتورة') }}">✕</button>
@@ -255,7 +260,7 @@
 
   <div class="overlay" x-show="receipt" x-cloak style="display:none" :style="receipt && 'display:flex'">
     <div class="receipt" x-show="receipt">
-      <div class="r-head"><div class="ok">✓</div><b>{{ __('تمّ الدفع بنجاح') }}</b><span x-text="receipt?.method==='card' ? '{{ __('بطاقة') }}' : '{{ __('نقدي') }}'"></span></div>
+      <div class="r-head"><div class="ok">✓</div><b>{{ __('تمّ الدفع بنجاح') }}</b><span x-text="{cash:'{{ __('نقدي') }}',card:'{{ __('بطاقة') }}',credit:'{{ __('آجل / ذمم') }}'}[receipt?.method] || '{{ __('نقدي') }}'"></span></div>
       <div class="r-body">
         <div class="r-store"><b>{{ config('app.name') }}</b><span>{{ $shift->branch?->name }} · {{ __('فاتورة') }} <span x-text="receipt?.number"></span></span></div>
         <template x-for="l in (receipt?.lines||[])" :key="l.name">
@@ -273,6 +278,28 @@
       <div class="r-actions">
         <button class="r-print" x-on:click="printReceipt()">🖨 {{ __('طباعة') }}</button>
         <button class="r-new" x-on:click="newSale()">{{ __('بيع جديد') }}</button>
+      </div>
+    </div>
+  </div>
+
+  {{-- نافذة اختيار العميل --}}
+  <div class="overlay" x-show="showCustomer" x-cloak style="display:none" :style="showCustomer && 'display:flex'">
+    <div class="receipt" style="width:400px;max-width:94vw">
+      <div class="r-head" style="background:var(--chrome)"><div class="ok">👤</div><b>{{ __('اختيار عميل') }}</b><span>{{ __('للبيع الآجل (ذمم) أو ربط الفاتورة') }}</span></div>
+      <div style="padding:16px 20px;display:flex;flex-direction:column;gap:10px">
+        <input class="expi" x-model="cust.q" x-on:input.debounce.300ms="custSearch()" placeholder="{{ __('ابحث بالاسم أو الهاتف…') }}">
+        <div style="max-height:240px;overflow:auto;display:flex;flex-direction:column;gap:6px">
+          <template x-for="c in cust.results" :key="c.id">
+            <div x-on:click="pickCustomer(c)" style="border:1px solid var(--border);border-radius:10px;padding:10px;cursor:pointer;display:flex;justify-content:space-between;align-items:center">
+              <b x-text="c.name"></b><span class="tnum" style="color:var(--muted);font-size:12px" x-text="c.phone||''"></span>
+            </div>
+          </template>
+          <div x-show="cust.q && !cust.results.length" style="color:var(--faint);text-align:center;padding:12px">{{ __('لا نتائج') }}</div>
+        </div>
+      </div>
+      <div class="r-actions">
+        <button class="r-print" x-on:click="resetCustomer(); showCustomer=false">{{ __('عميل نقدي') }}</button>
+        <button class="r-new" x-on:click="showCustomer=false">{{ __('إغلاق') }}</button>
       </div>
     </div>
   </div>
@@ -399,9 +426,10 @@ document.addEventListener('alpine:init', () => {
     showReturn: false, retTab: 'invoice',
     ret: { number: '', order: null, items: [], note: '' },
     ni: { q: '', results: [], lines: [], note: '' },
-    custName: @json($defaultCustomer), customerId: null,
+    custName: @json($defaultCustomer), defaultCustomerName: @json($defaultCustomer), customerId: null,
+    showCustomer: false, cust: { q: '', results: [] },
     receipt: null, toastMsg: '', seq: 1,
-    urls: { products: '{{ route('admin.pos.products') }}', barcode: '{{ route('admin.pos.barcode') }}', sell: '{{ route('admin.pos.sell') }}', receiptBase: '{{ url('admin/pos/receipt') }}', expense: '{{ route('admin.pos.shift.expense') }}', returnLookup: '{{ route('admin.pos.return.lookup') }}', returnPost: '{{ route('admin.pos.return') }}', returnNoInvoice: '{{ route('admin.pos.return.no_invoice') }}' },
+    urls: { products: '{{ route('admin.pos.products') }}', barcode: '{{ route('admin.pos.barcode') }}', sell: '{{ route('admin.pos.sell') }}', receiptBase: '{{ url('admin/pos/receipt') }}', expense: '{{ route('admin.pos.shift.expense') }}', returnLookup: '{{ route('admin.pos.return.lookup') }}', returnPost: '{{ route('admin.pos.return') }}', returnNoInvoice: '{{ route('admin.pos.return.no_invoice') }}', customers: '{{ route('admin.pos.customers') }}' },
     csrf: document.querySelector('meta[name=csrf-token]').content,
 
     get ticketNo(){ return '{{ $shift->number }}'.replace('SHIFT','POS'); },
@@ -413,6 +441,15 @@ document.addEventListener('alpine:init', () => {
 
     toggleTheme(){ const r=document.documentElement; r.setAttribute('data-theme', r.getAttribute('data-theme')==='dark'?'light':'dark'); },
     toast(m){ this.toastMsg=m; clearTimeout(this._t); this._t=setTimeout(()=>this.toastMsg='',2800); },
+
+    openCustomer(){ this.cust={ q:'', results:[] }; this.showCustomer=true; },
+    async custSearch(){
+      const url=new URL(this.urls.customers, location.origin); if(this.cust.q) url.searchParams.set('q', this.cust.q);
+      const r=await fetch(url,{headers:{'Accept':'application/json'}});
+      if(r.ok) this.cust.results=(await r.json()).customers;
+    },
+    pickCustomer(c){ this.customerId=c.id; this.custName=c.name; this.showCustomer=false; },
+    resetCustomer(){ this.customerId=null; this.custName=this.defaultCustomerName; if(this.method==='credit') this.method='cash'; },
 
     async loadProducts(){
       const url = new URL(this.urls.products, location.origin);
@@ -441,11 +478,12 @@ document.addEventListener('alpine:init', () => {
 
     async pay(){
       if(!this.cart.length || this.busy) return;
+      if(this.method==='credit' && !this.customerId){ this.toast('{{ __('اختر عميلًا للبيع الآجل') }}'); return; }
       this.busy=true;
       try{
+        const paid = this.method==='credit' ? 0 : (this.method==='cash' ? (this.tendered||this.total) : this.total);
         const body={ items:this.cart.map(l=>({variant_id:l.variant_id,qty:l.qty,unit_price:l.price})),
-          discount:this.discountVal, payment_method:this.method,
-          paid:this.method==='cash'?(this.tendered||this.total):this.total, customer_id:this.customerId };
+          discount:this.discountVal, payment_method:this.method, paid, customer_id:this.customerId };
         const r=await fetch(this.urls.sell,{method:'POST',
           headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':this.csrf}, body:JSON.stringify(body)});
         const data=await r.json();
@@ -523,7 +561,7 @@ document.addEventListener('alpine:init', () => {
       finally{ this.busy=false; }
     },
     printReceipt(){ if(this.receipt?.uuid) window.open(this.urls.receiptBase+'/'+this.receipt.uuid+'?print=1','_blank'); },
-    newSale(){ this.receipt=null; this.cart=[]; this.discount=0; this.tendered=null; this.loadProducts(); },
+    newSale(){ this.receipt=null; this.cart=[]; this.discount=0; this.tendered=null; this.resetCustomer(); this.method='cash'; this.loadProducts(); },
   }));
 });
 </script>

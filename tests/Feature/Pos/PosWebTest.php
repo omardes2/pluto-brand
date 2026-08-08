@@ -5,6 +5,7 @@ namespace Tests\Feature\Pos;
 use App\Models\User;
 use App\Modules\Catalog\Models\Product;
 use App\Modules\Catalog\Models\ProductVariant;
+use App\Modules\Crm\Models\Customer;
 use App\Modules\Foundation\Models\Branch;
 use App\Modules\Foundation\Models\Warehouse;
 use App\Modules\Foundation\Services\Settings;
@@ -290,6 +291,33 @@ class PosWebTest extends TestCase
         $this->post(route('admin.pos.expense_types.save'), ['types' => 'غداء,كهرباء,وقود'])
             ->assertRedirect(route('admin.pos.expense_types'));
         $this->assertSame('غداء,كهرباء,وقود', Settings::get('pos.expense_categories'));
+    }
+
+    public function test_customer_search_and_credit_sale(): void
+    {
+        $this->actingAs($this->admin());
+        $this->openShiftViaHttp();
+
+        $customer = Customer::factory()->create([
+            'branch_id' => Branch::default()->id,
+            'name' => 'عميل الذمم',
+        ]);
+
+        $this->getJson(route('admin.pos.customers', ['q' => 'الذمم']))
+            ->assertOk()
+            ->assertJsonPath('customers.0.id', $customer->id);
+
+        $this->postJson(route('admin.pos.sell'), [
+            'items' => [['variant_id' => $this->variant->id, 'qty' => 2, 'unit_price' => 20]],
+            'payment_method' => 'credit',
+            'customer_id' => $customer->id,
+        ])->assertOk()->assertJsonPath('ok', true);
+
+        $order = Order::where('channel', 'pos')->firstOrFail();
+        $this->assertSame($customer->id, $order->customer_id);
+        $this->assertSame('delivered', $order->status);
+        $this->assertNotSame('paid', $order->payment_status); // ذمم غير مدفوعة
+        $this->assertEquals(0.0, (float) $order->amount_paid);
     }
 
     public function test_no_invoice_refund_endpoint(): void
