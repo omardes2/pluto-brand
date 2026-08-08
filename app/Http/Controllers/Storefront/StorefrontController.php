@@ -94,9 +94,13 @@ class StorefrontController extends Controller
 
     public function checkout(): View
     {
-        // وجهات التوصيل: المدن/المناطق الفعّالة + خريطة أسعار مدن المزوّد (نمط Opost)
-        // لعرض رسوم التوصيل حيًّا واحتسابها على الطلب المُرسَل لشركة التوصيل.
+        // وجهات التوصيل: مدن المزوّد فقط (التي لها سعر/كود لدى شركة التوصيل) — كي لا يختار
+        // الزبون مدينة غير مدعومة فيُرفض الإرسال. مطابق لشاشة إنشاء الطلب في الأدمن.
+        $rates = DeliveryCityRate::where('is_active', true)->get(['city_id', 'delivery_fee']);
+        $rateCityIds = $rates->pluck('city_id')->filter()->unique();
+
         $cities = City::where('is_active', true)
+            ->whereIn('id', $rateCityIds)
             ->orderBy('sort_order')->orderBy('name')->get(['id', 'name']);
 
         $areas = Area::where('is_active', true)
@@ -108,8 +112,7 @@ class StorefrontController extends Controller
             'recommendations' => $this->reco->bestSellers(8),
             'cities' => $cities,
             'areas' => $areas,
-            'cityRates' => DeliveryCityRate::where('is_active', true)
-                ->pluck('delivery_fee', 'city_id'),
+            'cityRates' => $rates->pluck('delivery_fee', 'city_id'),
         ]);
     }
 
