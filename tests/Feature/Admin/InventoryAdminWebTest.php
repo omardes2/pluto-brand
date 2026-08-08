@@ -56,28 +56,38 @@ class InventoryAdminWebTest extends TestCase
         $res->assertSee('إدخال (شراء)');
     }
 
-    public function test_admin_can_quick_edit_product_prices(): void
+    public function test_admin_can_quick_edit_product_fields(): void
     {
         $product = Product::factory()->create();
+        $variant = $product->defaultVariant;
 
         $this->actingAs($this->admin())->get(route('admin.inventory.products.edit', $product))->assertOk();
 
         $this->actingAs($this->admin())->put(route('admin.inventory.products.update', $product), [
-            'sku' => $product->sku,
+            'name' => 'حليب مُحدَّث',
             'category_id' => $product->category_id,
             'cost_price' => 30,
             'retail_price' => 55,
             'wholesale_price' => 45,
+            'quantity' => 12,
+            'barcode' => '26000008',
         ])->assertRedirect(route('admin.inventory.stocks'));
 
         $product->refresh();
+        $this->assertSame('حليب مُحدَّث', $product->name);
         $this->assertEquals(55, (float) $product->retail_price);
         $this->assertEquals(45, (float) $product->wholesale_price);
         $this->assertEquals(30, (float) $product->cost_price);
 
-        // السعر يُزامَن للمتغيّر الافتراضي (مصدر السعر في صفحات الطلب/المنتجات).
+        // السعر يُزامَن للمتغيّر الافتراضي (مصدر السعر في صفحات الطلب/المنتجات) + الباركود يُحفَظ عليه.
         $this->assertEquals(55, (float) $product->defaultVariant->retail_price);
         $this->assertEquals(45, (float) $product->defaultVariant->wholesale_price);
+        $this->assertSame('26000008', $product->defaultVariant->fresh()->barcode);
+
+        // الكمية المتوفرة ضُبطت عبر تسوية مخزنية على المستودع الافتراضي.
+        $onHand = (float) InventoryStock::where('variant_id', $variant->id)
+            ->where('warehouse_id', $this->warehouse->id)->value('on_hand');
+        $this->assertEquals(12.0, $onHand);
     }
 
     public function test_admin_can_receive_via_web(): void

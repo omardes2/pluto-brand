@@ -76,14 +76,23 @@ class InventoryController extends Controller
         ]);
     }
 
-    /** صفحة تعديل سريع لصنف من المخزن: الفئة، كود المنتج، سعر الشراء/البيع/الجملة. */
+    /** صفحة تعديل سريع لصنف من المخزن: الاسم، الفئة، الأسعار، الكمية المتوفرة، الباركود. */
     public function editProduct(Product $product): View
     {
         $this->authorize('update', $product);
 
+        $variant = $product->defaultVariant()->first();
+        $warehouse = $this->defaultWarehouse();
+        $quantity = ($variant && $warehouse)
+            ? (float) InventoryStock::where('variant_id', $variant->id)
+                ->where('warehouse_id', $warehouse->id)->value('on_hand')
+            : 0.0;
+
         return view('admin.inventory.product-edit', [
             'product' => $product,
             'categories' => Category::orderBy('name')->get(['id', 'name']),
+            'variant' => $variant,
+            'quantity' => $quantity,
         ]);
     }
 
@@ -91,26 +100,52 @@ class InventoryController extends Controller
     {
         $this->authorize('update', $product);
 
+        $variant = $product->defaultVariant()->first();
+
         $data = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
             'category_id' => ['nullable', 'integer', 'exists:categories,id'],
-            'sku' => ['required', 'string', 'max:64', 'unique:products,sku,'.$product->id],
             'cost_price' => ['nullable', 'numeric', 'min:0'],
             'retail_price' => ['nullable', 'numeric', 'min:0'],
             'wholesale_price' => ['nullable', 'numeric', 'min:0'],
+            'quantity' => ['nullable', 'numeric', 'min:0'],
+            'barcode' => ['nullable', 'string', 'max:64',
+                $variant ? 'unique:product_variants,barcode,'.$variant->id : 'unique:product_variants,barcode'],
         ]);
 
-        $this->products->update($product, $data);
+        // الاسم + الفئة + الأسعار (تُزامَن الأسعار تلقائيًا مع المتغيّر الافتراضي داخل الخدمة).
+        $this->products->update($product, [
+            'name' => $data['name'],
+            'category_id' => $data['category_id'] ?? null,
+            'cost_price' => $data['cost_price'] ?? null,
+            'retail_price' => $data['retail_price'] ?? null,
+            'wholesale_price' => $data['wholesale_price'] ?? null,
+        ]);
 
-        // مزامنة أسعار المتغيّر الافتراضي — لأن صفحات الطلب/المنتجات تقرأ سعر المتغيّر.
-        if ($variant = $product->defaultVariant()->first()) {
-            $variant->update([
-                'cost_price' => $data['cost_price'] ?? $variant->cost_price,
-                'retail_price' => $data['retail_price'] ?? $variant->retail_price,
-                'wholesale_price' => $data['wholesale_price'] ?? $variant->wholesale_price,
-            ]);
+        if ($variant) {
+            $variant->update(['barcode' => $data['barcode'] ?? null]);
+
+            // ضبط الكمية المتوفرة عبر تسوية مخزنية على المستودع الافتراضي (تظهر في سجل المخزن).
+            if (($data['quantity'] ?? null) !== null && ($warehouse = $this->defaultWarehouse())) {
+                $current = (float) InventoryStock::where('variant_id', $variant->id)
+                    ->where('warehouse_id', $warehouse->id)->value('on_hand');
+                $delta = round((float) $data['quantity'] - $current, 2);
+                if (abs($delta) >= 0.001) {
+                    $opts = ['reason' => 'inventory_edit:'.$product->sku];
+                    $delta > 0
+                        ? $this->inventory->adjustIn($variant, $warehouse, $delta, $data['cost_price'] ?? null, $opts)
+                        : $this->inventory->adjustOut($variant, $warehouse, -$delta, $opts);
+                }
+            }
         }
 
         return redirect()->route('admin.inventory.stocks')->with('success', __('حُدّث الصنف.'));
+    }
+
+    /** المستودع الافتراضي (النظام أحادي المستودع حاليًا). */
+    private function defaultWarehouse(): ?Warehouse
+    {
+        return Warehouse::where('is_default', true)->first() ?? Warehouse::orderBy('id')->first();
     }
 
     public function movements(Request $request): View

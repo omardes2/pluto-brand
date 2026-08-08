@@ -17,21 +17,12 @@
 
             <div>
                 <h3 class="text-lg font-bold text-gray-900">{{ $product->name }}</h3>
-                <p class="text-sm text-gray-400">{{ __('تعديل بيانات الصنف الأساسية والأسعار.') }}</p>
+                <p class="text-sm text-gray-400">{{ __('تعديل بيانات الصنف الأساسية والأسعار والكمية.') }}</p>
             </div>
 
-            <x-admin.field :label="__('كود المنتج')" name="sku" required>
-                <input type="text" name="sku" value="{{ old('sku', $product->sku) }}" required
+            <x-admin.field :label="__('اسم المنتج')" name="name" required>
+                <input type="text" name="name" value="{{ old('name', $product->name) }}" required
                        class="w-full rounded-lg border-gray-300 focus:border-emerald-500 focus:ring-emerald-500" />
-            </x-admin.field>
-
-            <x-admin.field :label="__('الفئة')" name="category_id">
-                <select name="category_id" class="w-full rounded-lg border-gray-300 focus:border-emerald-500 focus:ring-emerald-500">
-                    <option value="">{{ __('— بدون فئة —') }}</option>
-                    @foreach ($categories as $cat)
-                        <option value="{{ $cat->id }}" @selected(old('category_id', $product->category_id) == $cat->id)>{{ $cat->name }}</option>
-                    @endforeach
-                </select>
             </x-admin.field>
 
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -39,15 +30,39 @@
                     <input type="number" step="0.01" min="0" name="cost_price" value="{{ old('cost_price', $product->cost_price) }}"
                            class="w-full rounded-lg border-gray-300 focus:border-emerald-500 focus:ring-emerald-500" />
                 </x-admin.field>
-                <x-admin.field :label="__('سعر البيع').' ('.$currency.')'" name="retail_price">
-                    <input type="number" step="0.01" min="0" name="retail_price" value="{{ old('retail_price', $product->retail_price) }}"
-                           class="w-full rounded-lg border-gray-300 focus:border-emerald-500 focus:ring-emerald-500" />
-                </x-admin.field>
                 <x-admin.field :label="__('سعر الجملة').' ('.$currency.')'" name="wholesale_price">
                     <input type="number" step="0.01" min="0" name="wholesale_price" value="{{ old('wholesale_price', $product->wholesale_price) }}"
                            class="w-full rounded-lg border-gray-300 focus:border-emerald-500 focus:ring-emerald-500" />
                 </x-admin.field>
+                <x-admin.field :label="__('سعر البيع').' ('.$currency.')'" name="retail_price">
+                    <input type="number" step="0.01" min="0" name="retail_price" value="{{ old('retail_price', $product->retail_price) }}"
+                           class="w-full rounded-lg border-gray-300 focus:border-emerald-500 focus:ring-emerald-500" />
+                </x-admin.field>
             </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <x-admin.field :label="__('الكمية المتوفرة')" name="quantity">
+                    <input type="number" step="0.01" min="0" name="quantity" value="{{ old('quantity', rtrim(rtrim(number_format((float) $quantity, 2, '.', ''), '0'), '.')) }}"
+                           class="w-full rounded-lg border-gray-300 focus:border-emerald-500 focus:ring-emerald-500" />
+                </x-admin.field>
+                <x-admin.field :label="__('الفئة')" name="category_id">
+                    <select name="category_id" class="w-full rounded-lg border-gray-300 focus:border-emerald-500 focus:ring-emerald-500">
+                        <option value="">{{ __('— بدون فئة —') }}</option>
+                        @foreach ($categories as $cat)
+                            <option value="{{ $cat->id }}" @selected(old('category_id', $product->category_id) == $cat->id)>{{ $cat->name }}</option>
+                        @endforeach
+                    </select>
+                </x-admin.field>
+                <x-admin.field :label="__('باركود المنتج')" name="barcode">
+                    <input type="text" name="barcode" value="{{ old('barcode', $variant?->barcode) }}" inputmode="numeric"
+                           placeholder="{{ __('مثال: 26000008') }}"
+                           class="w-full rounded-lg border-gray-300 focus:border-emerald-500 focus:ring-emerald-500 tabular-nums" />
+                </x-admin.field>
+            </div>
+
+            @unless ($variant)
+                <p class="text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded-lg p-3">{{ __('لا يوجد متغيّر افتراضي لهذا الصنف — لن تُحفَظ الكمية والباركود.') }}</p>
+            @endunless
 
             <div class="flex items-center justify-end gap-2 pt-2">
                 <a href="{{ route('admin.inventory.stocks') }}" class="btn-secondary">{{ __('إلغاء') }}</a>
