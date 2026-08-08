@@ -39,6 +39,30 @@ class PosReportService
     }
 
     /**
+     * كشف المصروفات (حركات pay_out) في مدى تاريخي مع الإجمالي والتفصيل حسب النوع.
+     *
+     * @return array{rows: Collection, total: float, byType: Collection}
+     */
+    public function expenses(string $from, string $to, ?int $branchId = null): array
+    {
+        $movements = PosShiftMovement::query()
+            ->where('type', PosShiftMovement::TYPE_PAY_OUT)
+            ->whereBetween('created_at', [$from.' 00:00:00', $to.' 23:59:59'])
+            ->when($branchId, fn ($q) => $q->whereHas('shift', fn ($s) => $s->where('branch_id', $branchId)))
+            ->with(['shift:id,number', 'createdBy:id,name'])
+            ->latest('id')
+            ->get();
+
+        return [
+            'rows' => $movements,
+            'total' => round((float) $movements->sum('amount'), 2),
+            'byType' => $movements->groupBy(fn ($m) => $m->category ?: __('غير مصنّف'))
+                ->map(fn ($g) => round((float) $g->sum('amount'), 2))
+                ->sortDesc(),
+        ];
+    }
+
+    /**
      * قائمة الورديات في مدى تاريخي (حسب وقت الفتح) مع إجمالي مصروفات كل وردية.
      */
     public function shifts(string $from, string $to, ?int $branchId = null): Collection

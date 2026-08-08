@@ -330,6 +330,9 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::get('reports', [PosReportController::class, 'index'])->name('reports')->middleware('can:pos.reports.view');
         Route::get('shifts', [PosReportController::class, 'shifts'])->name('shifts')->middleware('can:pos.reports.view');
         Route::get('shifts/{shift}', [PosReportController::class, 'shiftDetail'])->name('shifts.show')->middleware('can:pos.reports.view');
+        Route::get('expenses', [PosReportController::class, 'expenses'])->name('expenses')->middleware('can:pos.reports.view');
+        Route::get('expense-types', [PosReportController::class, 'expenseTypes'])->name('expense_types')->middleware('can:pos.reports.view');
+        Route::post('expense-types', [PosReportController::class, 'saveExpenseTypes'])->name('expense_types.save')->middleware('can:pos.reports.view');
         Route::get('products', [PosController::class, 'products'])->name('products')->middleware('can:pos.sell');
         Route::get('barcode', [PosController::class, 'barcode'])->name('barcode')->middleware('can:pos.sell');
         Route::post('sell', [PosController::class, 'sell'])->name('sell')->middleware('can:pos.sell');

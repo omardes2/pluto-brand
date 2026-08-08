@@ -7,6 +7,7 @@ use App\Modules\Catalog\Models\Product;
 use App\Modules\Catalog\Models\ProductVariant;
 use App\Modules\Foundation\Models\Branch;
 use App\Modules\Foundation\Models\Warehouse;
+use App\Modules\Foundation\Services\Settings;
 use App\Modules\Inventory\Models\InventoryStock;
 use App\Modules\Inventory\Services\InventoryService;
 use App\Modules\Pos\Models\PosShift;
@@ -271,6 +272,24 @@ class PosWebTest extends TestCase
             ->assertOk()
             ->assertSee('الأصناف المباعة')
             ->assertSee('ربح الوردية');
+    }
+
+    public function test_expenses_report_and_types_management(): void
+    {
+        $this->actingAs($this->admin());
+        $this->openShiftViaHttp();
+        $this->postJson(route('admin.pos.shift.expense'), ['category' => 'كهرباء', 'amount' => 40])->assertOk();
+
+        $this->get(route('admin.pos.expenses'))
+            ->assertOk()
+            ->assertSee('كشف المصروفات')
+            ->assertSee('كهرباء');
+
+        $this->get(route('admin.pos.expense_types'))->assertOk()->assertSee('أنواع المصروفات');
+
+        $this->post(route('admin.pos.expense_types.save'), ['types' => 'غداء,كهرباء,وقود'])
+            ->assertRedirect(route('admin.pos.expense_types'));
+        $this->assertSame('غداء,كهرباء,وقود', Settings::get('pos.expense_categories'));
     }
 
     public function test_no_invoice_refund_endpoint(): void

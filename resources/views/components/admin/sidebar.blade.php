@@ -32,6 +32,7 @@
         ['نقطة البيع', 'cart', [
             ['admin.pos.screen', 'شاشة الكاشير', 'pos.view', 'admin.pos.screen'],
             ['admin.pos.shifts', 'الورديات', 'pos.reports.view', 'admin.pos.shifts'],
+            ['admin.pos.expenses', 'المصروفات', 'pos.reports.view', 'admin.pos.expenses'],
             ['admin.pos.reports', 'تقارير نقطة البيع', 'pos.reports.view', 'admin.pos.reports'],
         ]],
         ['المبيعات', 'cart', [
