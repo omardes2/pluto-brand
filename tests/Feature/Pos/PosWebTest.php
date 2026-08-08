@@ -254,4 +254,19 @@ class PosWebTest extends TestCase
 
         $this->actingAs($user)->getJson(route('admin.pos.return.lookup', ['number' => 'X']))->assertForbidden();
     }
+
+    public function test_no_invoice_refund_endpoint(): void
+    {
+        $this->actingAs($this->admin());
+        $this->openShiftViaHttp();
+
+        $res = $this->postJson(route('admin.pos.return.no_invoice'), [
+            'lines' => [['variant_id' => $this->variant->id, 'qty' => 2, 'unit_price' => 15, 'condition' => 'sellable']],
+        ])->assertOk()->assertJsonPath('ok', true);
+        $this->assertEquals(30.0, (float) $res->json('refund')); // 2 × 15
+
+        $stock = InventoryStock::where('variant_id', $this->variant->id)
+            ->where('warehouse_id', $this->warehouse->id)->firstOrFail();
+        $this->assertEquals(102, (float) $stock->on_hand); // 100 + 2
+    }
 }

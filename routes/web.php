@@ -334,6 +334,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::get('receipt/{order}', [PosController::class, 'receipt'])->name('receipt')->middleware('can:pos.view');
         Route::get('return/lookup', [PosController::class, 'returnLookup'])->name('return.lookup')->middleware('can:pos.refund');
         Route::post('return', [PosController::class, 'refund'])->name('return')->middleware('can:pos.refund');
+        Route::post('return/no-invoice', [PosController::class, 'refundNoInvoice'])->name('return.no_invoice')->middleware('can:pos.refund');
     });
 
     // إدارة المستخدمين/الموظّفين (Production)

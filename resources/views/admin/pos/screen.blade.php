@@ -279,9 +279,17 @@
 
   {{-- نافذة الإرجاع / التبديل --}}
   <div class="overlay" x-show="showReturn" x-cloak style="display:none" :style="showReturn && 'display:flex'">
-    <div class="receipt" style="width:440px;max-width:94vw">
-      <div class="r-head" style="background:var(--chrome)"><div class="ok">↩</div><b>{{ __('إرجاع / تبديل') }}</b><span>{{ __('بالفاتورة الأصلية') }}</span></div>
-      <div style="padding:18px 20px;display:flex;flex-direction:column;gap:12px">
+    <div class="receipt" style="width:460px;max-width:94vw">
+      <div class="r-head" style="background:var(--chrome)"><div class="ok">↩</div><b>{{ __('إرجاع / تبديل') }}</b><span>{{ __('استرداد نقدي من الدرج') }}</span></div>
+
+      {{-- تبويبان --}}
+      <div style="display:flex;gap:8px;padding:12px 20px 0">
+        <button class="chip" :class="retTab==='invoice' && 'active'" x-on:click="retTab='invoice'">{{ __('بالفاتورة') }}</button>
+        <button class="chip" :class="retTab==='noinvoice' && 'active'" x-on:click="retTab='noinvoice'">{{ __('بدون فاتورة') }}</button>
+      </div>
+
+      {{-- تبويب: بالفاتورة --}}
+      <div x-show="retTab==='invoice'" style="padding:14px 20px;display:flex;flex-direction:column;gap:12px">
         <template x-if="!ret.order">
           <div style="display:flex;gap:8px">
             <input class="expi" x-model="ret.number" placeholder="{{ __('رقم الفاتورة (SO-…)') }}" x-on:keydown.enter.prevent="lookupReturn()">
@@ -300,7 +308,7 @@
                 <div style="display:flex;gap:8px;align-items:center">
                   <div class="qty"><button x-on:click="if(it.qty<it.returnable_qty)it.qty++">+</button><span class="q tnum" x-text="it.qty"></span><button x-on:click="if(it.qty>0)it.qty--">−</button></div>
                   <select class="expi" style="flex:1" x-model="it.condition">
-                    <option value="sellable">{{ __('صالح للبيع (يعود للمخزون)') }}</option>
+                    <option value="sellable">{{ __('صالح للبيع') }}</option>
                     <option value="damaged">{{ __('تالف (لا يعود)') }}</option>
                   </select>
                   <div class="tnum" style="font-weight:800;min-width:74px;text-align:end" x-text="money(it.qty*it.unit_price)"></div>
@@ -312,9 +320,44 @@
           </div>
         </template>
       </div>
+
+      {{-- تبويب: بدون فاتورة --}}
+      <div x-show="retTab==='noinvoice'" x-cloak style="padding:14px 20px;display:flex;flex-direction:column;gap:10px">
+        <div style="position:relative">
+          <input class="expi" x-model="ni.q" x-on:input.debounce.300ms="niSearch()" placeholder="{{ __('ابحث عن منتج لإضافته…') }}">
+          <div x-show="ni.results.length" style="position:absolute;inset-inline:0;top:46px;z-index:5;background:var(--surface);border:1px solid var(--border);border-radius:10px;max-height:180px;overflow:auto;box-shadow:var(--shadow)">
+            <template x-for="p in ni.results" :key="p.variant_id">
+              <div x-on:click="niAdd(p)" style="padding:9px 12px;cursor:pointer;display:flex;justify-content:space-between;gap:8px;border-bottom:1px solid var(--border)">
+                <span x-text="p.name"></span><span class="tnum" style="color:var(--accent-strong);font-weight:700" x-text="p.price.toFixed(2)"></span>
+              </div>
+            </template>
+          </div>
+        </div>
+        <template x-for="(l,idx) in ni.lines" :key="idx">
+          <div style="border:1px solid var(--border);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:8px">
+            <div style="display:flex;justify-content:space-between;gap:8px">
+              <div class="l-nm" x-text="l.name"></div>
+              <button class="rm" x-on:click="ni.lines.splice(idx,1)">🗑</button>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <div class="qty"><button x-on:click="l.qty++">+</button><span class="q tnum" x-text="l.qty"></span><button x-on:click="if(l.qty>1)l.qty--">−</button></div>
+              <input class="expi tnum" style="width:90px" type="number" min="0" step="0.01" x-model.number="l.unit_price" title="{{ __('السعر') }}">
+              <select class="expi" style="flex:1" x-model="l.condition">
+                <option value="sellable">{{ __('صالح للبيع') }}</option>
+                <option value="damaged">{{ __('تالف (لا يعود)') }}</option>
+              </select>
+              <div class="tnum" style="font-weight:800;min-width:70px;text-align:end" x-text="money(l.qty*l.unit_price)"></div>
+            </div>
+          </div>
+        </template>
+        <input class="expi" x-model="ni.note" placeholder="{{ __('ملاحظات (اختياري)') }}" maxlength="255">
+        <div class="change"><span>{{ __('إجمالي الاسترداد') }}</span><b class="tnum" x-text="money(niRefund)"></b></div>
+      </div>
+
       <div class="r-actions">
         <button class="r-print" x-on:click="showReturn=false">{{ __('إلغاء') }}</button>
-        <button class="r-new" :disabled="busy || !ret.order" x-on:click="submitReturn()">{{ __('تأكيد الإرجاع') }}</button>
+        <button x-show="retTab==='invoice'" class="r-new" :disabled="busy || !ret.order" x-on:click="submitReturn()">{{ __('تأكيد الإرجاع') }}</button>
+        <button x-show="retTab==='noinvoice'" class="r-new" :disabled="busy || !ni.lines.length" x-on:click="submitNoInvoice()">{{ __('تأكيد الإرجاع') }}</button>
       </div>
     </div>
   </div>
@@ -353,10 +396,12 @@ document.addEventListener('alpine:init', () => {
     discount: 0, tendered: null, busy: false,
     showExpense: false, exp: { category: '', amount: null, note: '' },
     expenseCategories: @json($expenseCategories),
-    showReturn: false, ret: { number: '', order: null, items: [], note: '' },
+    showReturn: false, retTab: 'invoice',
+    ret: { number: '', order: null, items: [], note: '' },
+    ni: { q: '', results: [], lines: [], note: '' },
     custName: @json($defaultCustomer), customerId: null,
     receipt: null, toastMsg: '', seq: 1,
-    urls: { products: '{{ route('admin.pos.products') }}', barcode: '{{ route('admin.pos.barcode') }}', sell: '{{ route('admin.pos.sell') }}', receiptBase: '{{ url('admin/pos/receipt') }}', expense: '{{ route('admin.pos.shift.expense') }}', returnLookup: '{{ route('admin.pos.return.lookup') }}', returnPost: '{{ route('admin.pos.return') }}' },
+    urls: { products: '{{ route('admin.pos.products') }}', barcode: '{{ route('admin.pos.barcode') }}', sell: '{{ route('admin.pos.sell') }}', receiptBase: '{{ url('admin/pos/receipt') }}', expense: '{{ route('admin.pos.shift.expense') }}', returnLookup: '{{ route('admin.pos.return.lookup') }}', returnPost: '{{ route('admin.pos.return') }}', returnNoInvoice: '{{ route('admin.pos.return.no_invoice') }}' },
     csrf: document.querySelector('meta[name=csrf-token]').content,
 
     get ticketNo(){ return '{{ $shift->number }}'.replace('SHIFT','POS'); },
@@ -409,7 +454,31 @@ document.addEventListener('alpine:init', () => {
       } catch(e){ this.toast('{{ __('خطأ في الاتصال') }}'); }
       finally{ this.busy=false; }
     },
-    returnMode(){ this.ret={ number:'', order:null, items:[], note:'' }; this.showReturn=true; },
+    returnMode(){ this.retTab='invoice'; this.ret={ number:'', order:null, items:[], note:'' }; this.ni={ q:'', results:[], lines:[], note:'' }; this.showReturn=true; },
+    async niSearch(){
+      const q=this.ni.q.trim(); if(!q){ this.ni.results=[]; return; }
+      const url=new URL(this.urls.products, location.origin); url.searchParams.set('q', q);
+      const r=await fetch(url,{headers:{'Accept':'application/json'}});
+      if(r.ok) this.ni.results=(await r.json()).products.slice(0,8);
+    },
+    niAdd(p){ if(!this.ni.lines.find(x=>x.variant_id===p.variant_id)) this.ni.lines.push({variant_id:p.variant_id,name:p.name,qty:1,unit_price:p.price,condition:'sellable'}); this.ni.q=''; this.ni.results=[]; },
+    get niRefund(){ return this.ni.lines.reduce((s,l)=>s+(l.qty>0?l.qty*l.unit_price:0),0); },
+    async submitNoInvoice(){
+      if(this.busy || !this.ni.lines.length) return;
+      this.busy=true;
+      try{
+        const lines=this.ni.lines.map(l=>({variant_id:l.variant_id,qty:l.qty,unit_price:l.unit_price,condition:l.condition}));
+        const r=await fetch(this.urls.returnNoInvoice,{method:'POST',
+          headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':this.csrf},
+          body:JSON.stringify({lines,note:this.ni.note})});
+        const d=await r.json();
+        if(!r.ok){ this.toast(d.message || '{{ __('تعذّر تنفيذ الإرجاع') }}'); return; }
+        this.showReturn=false;
+        this.toast('{{ __('تم الإرجاع — استُردّ') }} '+this.money(d.refund));
+        this.loadProducts();
+      } catch(e){ this.toast('{{ __('خطأ في الاتصال') }}'); }
+      finally{ this.busy=false; }
+    },
     async lookupReturn(){
       const n=this.ret.number.trim(); if(!n) return;
       const url=new URL(this.urls.returnLookup, location.origin); url.searchParams.set('number', n);

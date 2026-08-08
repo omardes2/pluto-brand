@@ -2,6 +2,9 @@
 
 namespace App\Modules\Pos\Services;
 
+use App\Modules\Catalog\Models\ProductVariant;
+use App\Modules\Foundation\Models\Warehouse;
+use App\Modules\Inventory\Services\InventoryService;
 use App\Modules\Pos\Models\PosShift;
 use App\Modules\Returns\Models\ReturnRequest;
 use App\Modules\Returns\Services\ReturnService;
@@ -20,7 +23,53 @@ class PosReturnService
     public function __construct(
         private readonly ReturnService $rma,
         private readonly PosShiftService $shifts,
+        private readonly InventoryService $inventory,
     ) {}
+
+    /**
+     * إرجاع بدون فاتورة أصلية — إعادة الأصناف للمخزون (صالح/تالف) واسترداد نقدي من الدرج بالسعر المُدخَل.
+     * لا يرتبط بطلب؛ يُسجَّل كحركة استرداد على الوردية (مسار مبسّط بلا موافقة).
+     *
+     * @param  array<int, array{variant_id:int, qty:float, unit_price:float, condition?:string}>  $lines
+     * @return array{refund: float}
+     */
+    public function refundWithoutInvoice(PosShift $shift, array $lines, ?string $note = null): array
+    {
+        if (! $shift->isOpen()) {
+            throw ValidationException::withMessages(['shift' => __('الوردية مغلقة.')]);
+        }
+        if (empty($lines)) {
+            throw ValidationException::withMessages(['items' => __('حدّد صنفًا واحدًا على الأقل للإرجاع.')]);
+        }
+
+        $warehouse = Warehouse::findOrFail($shift->warehouse_id);
+
+        return DB::transaction(function () use ($shift, $lines, $warehouse, $note) {
+            $refund = 0.0;
+            foreach ($lines as $line) {
+                $variant = ProductVariant::findOrFail((int) $line['variant_id']);
+                $qty = (float) $line['qty'];
+                $unitPrice = (float) $line['unit_price'];
+                if ($qty <= 0) {
+                    throw ValidationException::withMessages(['qty' => __('الكمية يجب أن تكون أكبر من صفر.')]);
+                }
+
+                $opts = ['reference_type' => PosShift::class, 'reference_id' => $shift->id, 'reason' => 'pos_return_no_invoice:'.$shift->number];
+                if (($line['condition'] ?? 'sellable') === 'damaged') {
+                    $this->inventory->returnToDamaged($variant, $warehouse, $qty, $opts);
+                } else {
+                    $this->inventory->returnToStock($variant, $warehouse, $qty, null, $opts);
+                }
+
+                $refund += $qty * $unitPrice;
+            }
+            $refund = round($refund, 2);
+
+            $this->shifts->recordRefund($shift, null, $refund, $note ?? __('إرجاع بدون فاتورة'));
+
+            return ['refund' => $refund];
+        });
+    }
 
     /**
      * إرجاع بالفاتورة الأصلية مع استرداد نقدي من درج الوردية.

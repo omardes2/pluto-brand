@@ -176,18 +176,19 @@ class PosShiftService
 
     /**
      * تسجيل استرداد نقدي (إرجاع) على الوردية: حركة refund تُخفّض النقد المتوقّع + عدّادات المرتجعات.
+     * $order اختياري — يبقى null في الإرجاع بدون فاتورة.
      */
-    public function recordRefund(PosShift $shift, Order $order, float $amount, ?string $note = null): PosShiftMovement
+    public function recordRefund(PosShift $shift, ?Order $order, float $amount, ?string $note = null): PosShiftMovement
     {
         return DB::transaction(function () use ($shift, $order, $amount, $note) {
             $amount = round($amount, 2);
 
             $movement = $shift->movements()->create([
                 'type' => PosShiftMovement::TYPE_REFUND,
-                'category' => __('إرجاع'),
+                'category' => $order ? __('إرجاع') : __('إرجاع بدون فاتورة'),
                 'amount' => $amount,
-                'order_id' => $order->id,
-                'reference' => $order->number,
+                'order_id' => $order?->id,
+                'reference' => $order?->number,
                 'note' => $note,
                 'created_by' => auth()->id(),
             ]);

@@ -122,4 +122,24 @@ class PosReturnServiceTest extends TestCase
             ['order_item_id' => $order->items->first()->id, 'qty' => 5],
         ]);
     }
+
+    public function test_no_invoice_return_restocks_and_refunds(): void
+    {
+        $shift = $this->openShift(); // درج 100
+
+        $result = app(PosReturnService::class)->refundWithoutInvoice($shift->fresh(), [
+            ['variant_id' => $this->variant->id, 'qty' => 3, 'unit_price' => 15, 'condition' => 'sellable'],
+        ]);
+
+        $this->assertEquals(45.0, $result['refund']);            // 3 × 15
+        $this->assertEquals(103, (float) $this->stock()->on_hand); // 100 + 3
+
+        $shift->refresh();
+        $this->assertEquals(45.0, (float) $shift->cash_refunds);
+        $this->assertEquals(55.0, (float) $shift->expected_cash); // 100 − 45
+        // حركة استرداد بلا طلب مرتبط.
+        $movement = $shift->movements()->where('type', PosShiftMovement::TYPE_REFUND)->first();
+        $this->assertNotNull($movement);
+        $this->assertNull($movement->order_id);
+    }
 }

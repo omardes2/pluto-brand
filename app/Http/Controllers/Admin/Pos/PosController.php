@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin\Pos;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Pos\CloseShiftRequest;
 use App\Http\Requests\Pos\ExpenseRequest;
+use App\Http\Requests\Pos\NoInvoiceRefundRequest;
 use App\Http\Requests\Pos\OpenShiftRequest;
 use App\Http\Requests\Pos\RefundRequest;
 use App\Http\Requests\Pos\SellRequest;
@@ -259,6 +260,24 @@ class PosController extends Controller
             'ok' => true,
             'refund' => $result['refund'],
             'rma' => $result['request']->number,
+            'expected_cash' => $this->shifts->computeExpectedCash($shift->fresh()),
+        ]);
+    }
+
+    /** إرجاع بدون فاتورة أصلية — استرداد نقدي وإعادة للمخزون بالسعر المُدخَل. */
+    public function refundNoInvoice(NoInvoiceRefundRequest $request): JsonResponse
+    {
+        $shift = $this->currentShift();
+        if (! $shift) {
+            return response()->json(['message' => __('لا توجد وردية مفتوحة.')], 422);
+        }
+
+        $data = $request->validated();
+        $result = $this->returns->refundWithoutInvoice($shift, $data['lines'], $data['note'] ?? null);
+
+        return response()->json([
+            'ok' => true,
+            'refund' => $result['refund'],
             'expected_cash' => $this->shifts->computeExpectedCash($shift->fresh()),
         ]);
     }
