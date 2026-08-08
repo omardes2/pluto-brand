@@ -148,6 +148,7 @@ class PosSaleServiceTest extends TestCase
         ]);
 
         $this->assertSame($customer->id, $order->customer_id);
+        $this->assertSame($customer->name, $order->customer_name); // يظهر باسم العميل لا «عميل نقدي»
         $this->assertSame('delivered', $order->status);
         $this->assertNotSame('paid', $order->payment_status); // ذمم غير مدفوعة
         $this->assertEquals(0.0, (float) $order->amount_paid);

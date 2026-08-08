@@ -2,6 +2,7 @@
 
 namespace App\Modules\Pos\Services;
 
+use App\Modules\Crm\Models\Customer;
 use App\Modules\Foundation\Services\Settings;
 use App\Modules\Inventory\Models\InventoryStock;
 use App\Modules\Pos\Models\PosShift;
@@ -51,14 +52,18 @@ class PosSaleService
             throw ValidationException::withMessages(['items' => __('لا توجد أصناف في الفاتورة.')]);
         }
 
-        return DB::transaction(function () use ($shift, $payload, $items, $method) {
+        // عند اختيار عميل مسجّل: استخدم اسمه وهاتفه ليظهرا في المبيعات باسم العميل لا «عميل نقدي».
+        $customer = ! empty($payload['customer_id']) ? Customer::find($payload['customer_id']) : null;
+
+        return DB::transaction(function () use ($shift, $payload, $items, $method, $customer) {
             $data = [
                 'branch_id' => $shift->branch_id,
                 'warehouse_id' => $shift->warehouse_id,
                 'customer_id' => $payload['customer_id'] ?? null,
                 'customer_name' => $payload['customer_name']
+                    ?? $customer?->name
                     ?? (string) Settings::get('pos.default_customer_name', 'عميل نقدي'),
-                'customer_phone' => $payload['customer_phone'] ?? '',
+                'customer_phone' => $payload['customer_phone'] ?? $customer?->primary_phone ?? '',
                 'channel' => 'pos',
                 'notes' => $payload['note'] ?? null,
             ];

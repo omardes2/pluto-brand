@@ -335,6 +335,7 @@ class PosWebTest extends TestCase
 
         $order = Order::where('channel', 'pos')->firstOrFail();
         $this->assertSame($customer->id, $order->customer_id);
+        $this->assertSame('عميل الذمم', $order->customer_name); // يظهر باسم العميل في المبيعات
         $this->assertSame('delivered', $order->status);
         $this->assertNotSame('paid', $order->payment_status); // ذمم غير مدفوعة
         $this->assertEquals(0.0, (float) $order->amount_paid);
