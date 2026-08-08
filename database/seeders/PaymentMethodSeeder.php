@@ -21,6 +21,9 @@ class PaymentMethodSeeder extends Seeder
             ['code' => 'stripe', 'name' => 'Stripe', 'driver' => 'null', 'type' => 'online', 'is_active' => false, 'sort_order' => 5],
             ['code' => 'paypal', 'name' => 'PayPal', 'driver' => 'null', 'type' => 'online', 'is_active' => false, 'sort_order' => 6],
             ['code' => 'moyasar', 'name' => 'Moyasar', 'driver' => 'null', 'type' => 'online', 'is_active' => false, 'sort_order' => 7],
+            // طرق دفع نقطة البيع داخل المحل (POS) — أوفلاين، تُحصَّل فورًا في درج الوردية.
+            ['code' => 'cash', 'name' => 'نقدي', 'driver' => 'offline', 'type' => 'offline', 'is_active' => true, 'sort_order' => 8],
+            ['code' => 'card', 'name' => 'بطاقة', 'driver' => 'offline', 'type' => 'offline', 'is_active' => true, 'sort_order' => 9],
         ];
 
         foreach ($methods as $method) {

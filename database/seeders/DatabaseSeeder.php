@@ -41,6 +41,8 @@ class DatabaseSeeder extends Seeder
             // Phase 2.8 — المدفوعات
             PaymentMethodSeeder::class,
             PaymentPermissionSeeder::class,
+            // نقطة البيع (POS) — صلاحيات ودور الكاشير (طرق الدفع/الإعدادات في seeders الخاصة بها)
+            PosPermissionSeeder::class,
             // Phase 2.9 — المحاسبة
             ChartOfAccountsSeeder::class,
             AccountMappingSeeder::class,

@@ -26,6 +26,11 @@ class SettingsSeeder extends Seeder
             ['key' => 'store.default_locale', 'value' => 'ar', 'group' => 'localization'],
             ['key' => 'tax.enabled', 'value' => true, 'group' => 'tax', 'type' => 'boolean'],
             ['key' => 'tax.rate', 'value' => 15, 'group' => 'tax', 'type' => 'integer'],
+            // نقطة البيع (POS) — تُضبط من لوحة الإعدادات.
+            ['key' => 'pos.enabled', 'value' => true, 'group' => 'pos', 'type' => 'boolean'],
+            ['key' => 'pos.default_customer_name', 'value' => 'عميل نقدي', 'group' => 'pos'],
+            ['key' => 'pos.require_invoice_for_return', 'value' => true, 'group' => 'pos', 'type' => 'boolean'],
+            ['key' => 'pos.receipt_footer', 'value' => 'شكرًا لتسوّقكم من Pluto Brand', 'group' => 'pos'],
         ];
 
         foreach ($defaults as $setting) {

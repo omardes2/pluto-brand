@@ -9,6 +9,7 @@ use App\Modules\Foundation\Providers\FoundationServiceProvider;
 use App\Modules\Inventory\Providers\InventoryServiceProvider;
 use App\Modules\Marketing\Providers\MarketingServiceProvider;
 use App\Modules\Payment\Providers\PaymentServiceProvider;
+use App\Modules\Pos\Providers\PosServiceProvider;
 use App\Modules\Purchasing\Providers\PurchasingServiceProvider;
 use App\Modules\Recommendations\Providers\RecommendationsServiceProvider;
 use App\Modules\Sales\Providers\SalesServiceProvider;
@@ -29,6 +30,8 @@ return [
     CrmServiceProvider::class,
     StoreServiceProvider::class,
     CommissionsServiceProvider::class,
+    // نقطة البيع (POS)
+    PosServiceProvider::class,
     // Phase 6 — الذكاء الاصطناعي والتوصيات والتسويق
     AiServiceProvider::class,
     RecommendationsServiceProvider::class,
