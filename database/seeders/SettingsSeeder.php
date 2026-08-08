@@ -31,6 +31,7 @@ class SettingsSeeder extends Seeder
             ['key' => 'pos.default_customer_name', 'value' => 'عميل نقدي', 'group' => 'pos'],
             ['key' => 'pos.require_invoice_for_return', 'value' => true, 'group' => 'pos', 'type' => 'boolean'],
             ['key' => 'pos.receipt_footer', 'value' => 'شكرًا لتسوّقكم من Pluto Brand', 'group' => 'pos'],
+            ['key' => 'pos.expense_categories', 'value' => 'غداء,كهرباء,ماء,مواصلات,صيانة,قرطاسية,أخرى', 'group' => 'pos'],
         ];
 
         foreach ($defaults as $setting) {

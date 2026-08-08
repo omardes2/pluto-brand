@@ -113,6 +113,37 @@ class PosShiftService
     }
 
     /**
+     * تسجيل مصروف يومي (غداء/كهرباء/…) — سحب نقدي من الدرج بنوع وملاحظة.
+     * يُسجَّل كحركة pay_out بتصنيف، ويُخفّض النقد المتوقّع في الدرج.
+     */
+    public function addExpense(PosShift $shift, string $category, float $amount, ?string $note = null): PosShiftMovement
+    {
+        if (! $shift->isOpen()) {
+            throw ValidationException::withMessages(['shift' => __('الوردية مغلقة.')]);
+        }
+        $amount = round($amount, 2);
+        if ($amount <= 0) {
+            throw ValidationException::withMessages(['amount' => __('مبلغ المصروف يجب أن يكون أكبر من صفر.')]);
+        }
+        $category = trim($category) !== '' ? trim($category) : __('أخرى');
+
+        return DB::transaction(function () use ($shift, $category, $amount, $note) {
+            $movement = $shift->movements()->create([
+                'type' => PosShiftMovement::TYPE_PAY_OUT,
+                'category' => $category,
+                'amount' => $amount,
+                'note' => $note,
+                'created_by' => auth()->id(),
+            ]);
+
+            $shift->expected_cash = $this->computeExpectedCash($shift);
+            $shift->save();
+
+            return $movement;
+        });
+    }
+
+    /**
      * تسجيل بيع على الوردية: حركة درج (نقدي/بطاقة) + تحديث عدّادات الوردية والنقد المتوقّع.
      */
     public function recordSale(PosShift $shift, Order $order, string $method): PosShiftMovement

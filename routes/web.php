@@ -26,6 +26,7 @@ use App\Http\Controllers\Admin\Marketing\CampaignController as AdminCampaignCont
 use App\Http\Controllers\Admin\Marketing\CampaignTemplateController as AdminCampaignTemplateController;
 use App\Http\Controllers\Admin\Payment\PaymentController as AdminPaymentController;
 use App\Http\Controllers\Admin\Pos\PosController;
+use App\Http\Controllers\Admin\Pos\PosReportController;
 use App\Http\Controllers\Admin\Purchasing\GoodsReceiptController as AdminGoodsReceiptController;
 use App\Http\Controllers\Admin\Purchasing\PurchaseInvoiceController;
 use App\Http\Controllers\Admin\Purchasing\PurchaseOrderController as AdminPurchaseOrderController;
@@ -325,6 +326,8 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::get('shift/close', [PosController::class, 'closeForm'])->name('shift.close_form')->middleware('can:pos.shift.manage');
         Route::post('shift/close', [PosController::class, 'close'])->name('shift.close')->middleware('can:pos.shift.manage');
         Route::post('shift/movement', [PosController::class, 'movement'])->name('shift.movement')->middleware('can:pos.shift.manage');
+        Route::post('shift/expense', [PosController::class, 'expense'])->name('shift.expense')->middleware('can:pos.shift.manage');
+        Route::get('reports', [PosReportController::class, 'index'])->name('reports')->middleware('can:pos.reports.view');
         Route::get('products', [PosController::class, 'products'])->name('products')->middleware('can:pos.sell');
         Route::get('barcode', [PosController::class, 'barcode'])->name('barcode')->middleware('can:pos.sell');
         Route::post('sell', [PosController::class, 'sell'])->name('sell')->middleware('can:pos.sell');

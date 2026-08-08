@@ -30,7 +30,7 @@ class PosShiftMovement extends Model
     public const TYPE_PAY_OUT = 'pay_out';
 
     protected $fillable = [
-        'pos_shift_id', 'type', 'amount', 'order_id', 'reference', 'note', 'created_by',
+        'pos_shift_id', 'type', 'category', 'amount', 'order_id', 'reference', 'note', 'created_by',
     ];
 
     protected $casts = [

@@ -132,4 +132,16 @@ class PosShiftServiceTest extends TestCase
         $this->assertEquals(100.0, (float) $closed->cash_sales);
         $this->assertSame(1, $closed->orders_count);
     }
+
+    public function test_expense_reduces_expected_cash_and_records_category(): void
+    {
+        $shift = $this->openShift(100);
+        $this->sellCash($shift, 5, 20); // درج 200
+
+        $movement = $this->shifts()->addExpense($shift->fresh(), 'كهرباء', 30, 'فاتورة الشهر');
+
+        $this->assertSame(PosShiftMovement::TYPE_PAY_OUT, $movement->type);
+        $this->assertSame('كهرباء', $movement->category);
+        $this->assertEquals(170.0, (float) $shift->fresh()->expected_cash); // 200 − 30
+    }
 }

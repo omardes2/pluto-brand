@@ -178,4 +178,44 @@ class PosWebTest extends TestCase
             ->get(route('admin.pos.receipt', $order))
             ->assertNotFound();
     }
+
+    public function test_expense_endpoint_records_movement(): void
+    {
+        $this->actingAs($this->admin());
+        $this->openShiftViaHttp();
+
+        $res = $this->postJson(route('admin.pos.shift.expense'), [
+            'category' => 'غداء',
+            'amount' => 25,
+            'note' => 'غداء الفريق',
+        ])->assertOk();
+        $this->assertEquals(75.0, (float) $res->json('expected_cash')); // 100 افتتاحي − 25
+
+        $this->assertDatabaseHas('pos_shift_movements', [
+            'type' => 'pay_out', 'category' => 'غداء', 'amount' => 25,
+        ]);
+    }
+
+    public function test_reports_page_loads_with_totals(): void
+    {
+        $this->actingAs($this->admin());
+        $this->openShiftViaHttp();
+        $this->postJson(route('admin.pos.sell'), [
+            'items' => [['variant_id' => $this->variant->id, 'qty' => 2, 'unit_price' => 20]],
+            'payment_method' => 'cash',
+        ])->assertOk();
+
+        $this->get(route('admin.pos.reports'))
+            ->assertOk()
+            ->assertSee('تقارير نقطة البيع')
+            ->assertSee('الرصيد النهائي');
+    }
+
+    public function test_reports_forbidden_without_permission(): void
+    {
+        $user = User::factory()->create(['branch_id' => Branch::default()->id]);
+        $user->givePermissionTo(['pos.view']); // بلا pos.reports.view
+
+        $this->actingAs($user)->get(route('admin.pos.reports'))->assertForbidden();
+    }
 }

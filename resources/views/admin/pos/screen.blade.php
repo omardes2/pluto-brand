@@ -1,4 +1,8 @@
 <x-pos-layout :title="__('نقطة البيع')">
+@php
+    $expenseCategories = array_values(array_filter(array_map('trim',
+        explode(',', (string) \App\Modules\Foundation\Services\Settings::get('pos.expense_categories', 'أخرى')))));
+@endphp
 @push('styles')
 <style>
   :root{
@@ -131,6 +135,9 @@
   .r-new{background:var(--accent);color:var(--accent-contrast)}
   .toast{position:fixed;top:72px;left:50%;transform:translateX(-50%);background:var(--chrome);color:var(--chrome-text);
     border:1px solid rgba(255,255,255,.12);padding:12px 18px;border-radius:12px;font-size:13.5px;font-weight:600;z-index:60;box-shadow:var(--shadow)}
+  .expl{font-size:13px;font-weight:700;color:var(--muted);display:block;margin-bottom:4px}
+  .expi{width:100%;height:42px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);border-radius:10px;padding:0 12px;font-family:inherit;outline:none;font-size:14px}
+  .expi:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
 </style>
 @endpush
 
@@ -139,10 +146,9 @@
     <div class="brand"><span class="mark">P</span><span>{{ config('app.name') }}<small>{{ __('نقطة البيع · POS') }}</small></span></div>
     <div class="sep"></div>
     <div class="meta"><span class="dot"></span> {{ __('فاتورة') }} <b x-text="ticketNo"></b></div>
-    <div class="sep"></div>
-    <div class="meta">{{ __('الفرع') }}: <b>{{ $shift->branch?->name ?? '—' }}</b></div>
-    <div class="meta">{{ __('المخزن') }}: <b>{{ $shift->warehouse?->name ?? '—' }}</b></div>
     <div class="spacer"></div>
+    <button class="topbtn" x-on:click="returnMode()">↩ {{ __('إرجاع / تبديل') }}</button>
+    <button class="topbtn" x-on:click="openExpense()">🧾 {{ __('مصروف') }}</button>
     <a class="topbtn" href="{{ route('admin.pos.shift.close_form') }}">{{ __('إغلاق الوردية') }} ({{ $shift->number }})</a>
     <button class="icon-btn" x-on:click="toggleTheme()" title="{{ __('تبديل السمة') }}">◐</button>
     <div class="sep"></div>
@@ -271,6 +277,27 @@
     </div>
   </div>
 
+  {{-- نافذة المصروف اليومي --}}
+  <div class="overlay" x-show="showExpense" x-cloak style="display:none" :style="showExpense && 'display:flex'">
+    <div class="receipt" style="width:360px">
+      <div class="r-head" style="background:var(--chrome)"><div class="ok">🧾</div><b>{{ __('مصروف يومي') }}</b><span>{{ __('سحب نقدي من الدرج') }}</span></div>
+      <div style="padding:18px 20px;display:flex;flex-direction:column;gap:12px">
+        <div>
+          <label class="expl">{{ __('نوع المصروف') }}</label>
+          <select x-model="exp.category" class="expi">
+            @foreach ($expenseCategories as $cat)<option value="{{ $cat }}">{{ $cat }}</option>@endforeach
+          </select>
+        </div>
+        <div><label class="expl">{{ __('المبلغ (₪)') }}</label><input type="number" min="0" step="0.01" x-model.number="exp.amount" class="expi tnum"></div>
+        <div><label class="expl">{{ __('ملاحظات') }}</label><input type="text" x-model="exp.note" maxlength="255" class="expi"></div>
+      </div>
+      <div class="r-actions">
+        <button class="r-print" x-on:click="showExpense=false">{{ __('إلغاء') }}</button>
+        <button class="r-new" :disabled="busy" x-on:click="submitExpense()">{{ __('حفظ المصروف') }}</button>
+      </div>
+    </div>
+  </div>
+
   <div class="toast" x-show="toastMsg" x-transition x-text="toastMsg" style="display:none"></div>
 </div>
 
@@ -282,9 +309,11 @@ document.addEventListener('alpine:init', () => {
     categories: @json($categories),
     cart: [], q: '', barcodeInput: '', cat: null, method: 'cash',
     discount: 0, tendered: null, busy: false,
+    showExpense: false, exp: { category: '', amount: null, note: '' },
+    expenseCategories: @json($expenseCategories),
     custName: @json($defaultCustomer), customerId: null,
     receipt: null, toastMsg: '', seq: 1,
-    urls: { products: '{{ route('admin.pos.products') }}', barcode: '{{ route('admin.pos.barcode') }}', sell: '{{ route('admin.pos.sell') }}', receiptBase: '{{ url('admin/pos/receipt') }}' },
+    urls: { products: '{{ route('admin.pos.products') }}', barcode: '{{ route('admin.pos.barcode') }}', sell: '{{ route('admin.pos.sell') }}', receiptBase: '{{ url('admin/pos/receipt') }}', expense: '{{ route('admin.pos.shift.expense') }}' },
     csrf: document.querySelector('meta[name=csrf-token]').content,
 
     get ticketNo(){ return '{{ $shift->number }}'.replace('SHIFT','POS'); },
@@ -334,6 +363,23 @@ document.addEventListener('alpine:init', () => {
         const data=await r.json();
         if(!r.ok){ this.toast(data.message || '{{ __('تعذّر إتمام البيع') }}'); return; }
         this.receipt={ ...data, lines:this.cart.map(l=>({name:l.name,qty:l.qty,price:l.price})) };
+      } catch(e){ this.toast('{{ __('خطأ في الاتصال') }}'); }
+      finally{ this.busy=false; }
+    },
+    returnMode(){ this.toast('{{ __('الإرجاع / التبديل — قريبًا (المرحلة 5)') }}'); },
+    openExpense(){ this.exp={ category:(this.expenseCategories[0]||''), amount:null, note:'' }; this.showExpense=true; },
+    async submitExpense(){
+      if(this.busy) return;
+      if(!this.exp.amount || this.exp.amount<=0){ this.toast('{{ __('أدخل مبلغ المصروف') }}'); return; }
+      this.busy=true;
+      try{
+        const r=await fetch(this.urls.expense,{method:'POST',
+          headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':this.csrf},
+          body:JSON.stringify({category:this.exp.category,amount:this.exp.amount,note:this.exp.note})});
+        const data=await r.json();
+        if(!r.ok){ this.toast(data.message || '{{ __('تعذّر حفظ المصروف') }}'); return; }
+        this.showExpense=false;
+        this.toast('{{ __('تم تسجيل المصروف') }}');
       } catch(e){ this.toast('{{ __('خطأ في الاتصال') }}'); }
       finally{ this.busy=false; }
     },

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin\Pos;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Pos\CloseShiftRequest;
+use App\Http\Requests\Pos\ExpenseRequest;
 use App\Http\Requests\Pos\OpenShiftRequest;
 use App\Http\Requests\Pos\SellRequest;
 use App\Http\Requests\Pos\ShiftMovementRequest;
@@ -109,6 +110,20 @@ class PosController extends Controller
 
         $data = $request->validated();
         $this->shifts->addMovement($shift, $data['type'], (float) $data['amount'], $data['note'] ?? null);
+
+        return response()->json(['expected_cash' => $this->shifts->computeExpectedCash($shift->fresh())]);
+    }
+
+    /** إدخال مصروف يومي (سحب نقدي من الدرج بنوع وملاحظة). */
+    public function expense(ExpenseRequest $request): JsonResponse
+    {
+        $shift = $this->currentShift();
+        if (! $shift) {
+            return response()->json(['message' => __('لا توجد وردية مفتوحة.')], 422);
+        }
+
+        $data = $request->validated();
+        $this->shifts->addExpense($shift, $data['category'], (float) $data['amount'], $data['note'] ?? null);
 
         return response()->json(['expected_cash' => $this->shifts->computeExpectedCash($shift->fresh())]);
     }

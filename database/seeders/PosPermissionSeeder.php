@@ -19,7 +19,7 @@ use Spatie\Permission\Models\Role;
 class PosPermissionSeeder extends Seeder
 {
     private array $permissions = [
-        'pos.view', 'pos.sell', 'pos.discount', 'pos.refund', 'pos.refund.no_invoice', 'pos.shift.manage',
+        'pos.view', 'pos.sell', 'pos.discount', 'pos.refund', 'pos.refund.no_invoice', 'pos.shift.manage', 'pos.reports.view',
     ];
 
     /** قدرات الكاشير الأساسية (بلا الإرجاع دون فاتورة — للمشرف فقط). */
