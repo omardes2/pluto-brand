@@ -70,6 +70,15 @@
   .stk.low{color:var(--warning);background:var(--warning-soft);border-color:transparent}
   .tag{position:absolute;top:10px;inset-inline-start:10px;background:var(--danger);color:#fff;font-size:10.5px;font-weight:800;padding:2px 8px;border-radius:6px}
   .ticket{background:var(--surface);border-inline-start:1px solid var(--border);display:flex;flex-direction:column;min-height:0}
+  .tabs{display:flex;gap:6px;align-items:center;padding:10px 12px 0;overflow-x:auto;border-bottom:1px solid var(--border);background:var(--surface-2)}
+  .tab{display:flex;align-items:center;gap:7px;white-space:nowrap;border:1px solid var(--border);border-bottom:none;background:var(--surface-2);
+    color:var(--muted);border-radius:10px 10px 0 0;padding:8px 12px;font-weight:700;font-size:13px;font-family:inherit;cursor:pointer;position:relative}
+  .tab.active{background:var(--surface);color:var(--text);box-shadow:0 -2px 0 var(--accent) inset}
+  .tab .tcount{background:var(--accent);color:#fff;border-radius:999px;font-size:11px;min-width:18px;height:18px;display:grid;place-items:center;padding:0 5px;line-height:1}
+  .tab .tclose{color:var(--faint);font-size:12px;padding:1px 4px;border-radius:5px}
+  .tab .tclose:hover{color:var(--danger);background:var(--danger-soft)}
+  .tab.add{color:var(--accent-strong);background:var(--surface);font-size:17px;padding:7px 13px;flex:0 0 auto}
+  .tab.add:hover{border-color:var(--accent);background:var(--accent-soft)}
   .ticket-head{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;flex-direction:column;gap:12px}
   .ticket-top{display:flex;align-items:center;justify-content:space-between}
   .ticket-top .tno{font-weight:800;font-size:14px}
@@ -146,8 +155,9 @@
   <div class="topbar">
     <div class="brand"><span class="mark">P</span><span>{{ config('app.name') }}<small>{{ __('نقطة البيع · POS') }}</small></span></div>
     <div class="sep"></div>
-    <div class="meta"><span class="dot"></span> {{ __('فاتورة') }} <b x-text="ticketNo"></b></div>
+    <div class="meta"><span class="dot"></span> {{ __('فاتورة') }} <b x-text="(active+1)"></b> / <span x-text="tickets.length"></span></div>
     <div class="spacer"></div>
+    <button class="topbtn" x-on:click="addTicket()">＋ {{ __('فاتورة جديدة') }}</button>
     <button class="topbtn" x-on:click="returnMode()">↩ {{ __('إرجاع / تبديل') }}</button>
     <button class="topbtn" x-on:click="openExpense()">🧾 {{ __('مصروف') }}</button>
     <a class="topbtn" href="{{ route('admin.pos.shift.close_form') }}">{{ __('إغلاق الوردية') }} ({{ $shift->number }})</a>
@@ -195,8 +205,18 @@
     </div>
 
     <div class="ticket">
+      <div class="tabs">
+        <template x-for="(tk,i) in tickets" :key="tk.id">
+          <button class="tab" :class="i===active && 'active'" x-on:click="active=i">
+            <span x-text="'{{ __('فاتورة') }} '+(i+1)"></span>
+            <span class="tcount" x-show="tk.cart.length" x-text="tk.cart.length"></span>
+            <span class="tclose" x-show="tickets.length>1" x-on:click.stop="closeTicket(i)">✕</span>
+          </button>
+        </template>
+        <button class="tab add" x-on:click="addTicket()" title="{{ __('فاتورة جديدة') }}">＋</button>
+      </div>
       <div class="ticket-head">
-        <div class="ticket-top"><div class="tno">{{ __('فاتورة') }} <span x-text="ticketNo"></span></div></div>
+        <div class="ticket-top"><div class="tno">{{ __('فاتورة') }} <span x-text="(active+1)"></span></div></div>
         <div class="customer" x-on:click="openCustomer()" style="cursor:pointer">
           <div class="ci">👤</div>
           <div class="cd"><b x-text="custName"></b><span x-text="customerId ? '{{ __('عميل مسجّل — اضغط للتغيير') }}' : '{{ __('عميل نقدي — اضغط لاختيار عميل') }}'"></span></div>
@@ -419,20 +439,39 @@ document.addEventListener('alpine:init', () => {
   Alpine.data('pos', () => ({
     products: @json($products),
     categories: @json($categories),
-    cart: [], q: '', barcodeInput: '', cat: null, method: 'cash',
-    discount: 0, tendered: null, busy: false,
+    tickets: [], active: 0, seqTicket: 0,
+    q: '', barcodeInput: '', cat: null, busy: false,
     showExpense: false, exp: { category: '', amount: null, note: '' },
     expenseCategories: @json($expenseCategories),
     showReturn: false, retTab: 'invoice',
     ret: { number: '', order: null, items: [], note: '' },
     ni: { q: '', results: [], lines: [], note: '' },
-    custName: @json($defaultCustomer), defaultCustomerName: @json($defaultCustomer), customerId: null,
+    defaultCustomerName: @json($defaultCustomer),
     showCustomer: false, cust: { q: '', results: [] },
-    receipt: null, toastMsg: '', seq: 1,
+    receipt: null, toastMsg: '',
     urls: { products: '{{ route('admin.pos.products') }}', barcode: '{{ route('admin.pos.barcode') }}', sell: '{{ route('admin.pos.sell') }}', receiptBase: '{{ url('admin/pos/receipt') }}', expense: '{{ route('admin.pos.shift.expense') }}', returnLookup: '{{ route('admin.pos.return.lookup') }}', returnPost: '{{ route('admin.pos.return') }}', returnNoInvoice: '{{ route('admin.pos.return.no_invoice') }}', customers: '{{ route('admin.pos.customers') }}' },
     csrf: document.querySelector('meta[name=csrf-token]').content,
 
-    get ticketNo(){ return '{{ $shift->number }}'.replace('SHIFT','POS'); },
+    // فواتير متعددة (تبويبات): كل فاتورة تحتفظ بسلتها وعميلها ودفعها ضمن نفس الوردية.
+    init(){ this.addTicket(); },
+    blankTicket(){ return { id: ++this.seqTicket, cart: [], discount: 0, tendered: null, method: 'cash', customerId: null, custName: this.defaultCustomerName }; },
+    addTicket(){ this.tickets.push(this.blankTicket()); this.active = this.tickets.length - 1; },
+    closeTicket(i){
+      const tk = this.tickets[i];
+      if(this.tickets.length>1 && tk && tk.cart.length && !confirm('{{ __('إغلاق هذه الفاتورة وحذف أصنافها؟') }}')) return;
+      this.tickets.splice(i,1);
+      if(!this.tickets.length) this.addTicket();
+      else if(this.active >= this.tickets.length) this.active = this.tickets.length - 1;
+    },
+    // منافذ (proxies) للفاتورة النشطة — تُبقي بقية الكود يعمل كأنّ الحالة مفردة.
+    get t(){ return this.tickets[this.active] || { cart:[], discount:0, tendered:null, method:'cash', customerId:null, custName:this.defaultCustomerName }; },
+    get cart(){ return this.t.cart; }, set cart(v){ this.t.cart = v; },
+    get discount(){ return this.t.discount; }, set discount(v){ this.t.discount = v; },
+    get tendered(){ return this.t.tendered; }, set tendered(v){ this.t.tendered = v; },
+    get method(){ return this.t.method; }, set method(v){ this.t.method = v; },
+    get customerId(){ return this.t.customerId; }, set customerId(v){ this.t.customerId = v; },
+    get custName(){ return this.t.custName; }, set custName(v){ this.t.custName = v; },
+
     get subtotal(){ return this.cart.reduce((s,l)=>s+l.price*l.qty,0); },
     get discountVal(){ return Math.min(Math.max(parseFloat(this.discount)||0,0), this.subtotal); },
     get total(){ return Math.max(0, Math.round((this.subtotal - this.discountVal)*100)/100); },
@@ -561,7 +600,13 @@ document.addEventListener('alpine:init', () => {
       finally{ this.busy=false; }
     },
     printReceipt(){ if(this.receipt?.uuid) window.open(this.urls.receiptBase+'/'+this.receipt.uuid+'?print=1','_blank'); },
-    newSale(){ this.receipt=null; this.cart=[]; this.discount=0; this.tendered=null; this.resetCustomer(); this.method='cash'; this.loadProducts(); },
+    newSale(){
+      this.receipt=null;
+      // الفاتورة المدفوعة انتهت: أغلقها وانتقل لغيرها، أو استبدلها بفاتورة جديدة إن كانت الوحيدة.
+      if(this.tickets.length>1){ this.tickets.splice(this.active,1); if(this.active>=this.tickets.length) this.active=this.tickets.length-1; }
+      else { this.tickets.splice(0,1,this.blankTicket()); this.active=0; }
+      this.loadProducts();
+    },
   }));
 });
 </script>
