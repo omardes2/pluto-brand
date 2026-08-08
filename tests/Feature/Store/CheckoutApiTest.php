@@ -5,9 +5,13 @@ namespace Tests\Feature\Store;
 use App\Models\User;
 use App\Modules\Catalog\Models\Product;
 use App\Modules\Catalog\Models\ProductVariant;
+use App\Modules\Foundation\Models\City;
+use App\Modules\Foundation\Models\DeliveryProvider;
+use App\Modules\Foundation\Models\Governorate;
 use App\Modules\Foundation\Models\Warehouse;
 use App\Modules\Inventory\Models\InventoryStock;
 use App\Modules\Inventory\Services\InventoryService;
+use App\Modules\Sales\Models\Order;
 use App\Modules\Store\Events\CheckoutCompleted;
 use App\Modules\Store\Events\CheckoutStarted;
 use Database\Seeders\DatabaseSeeder;
@@ -15,6 +19,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
+use Tests\Support\FakeTrackingDeliveryProvider;
 use Tests\TestCase;
 
 class CheckoutApiTest extends TestCase
@@ -51,6 +56,18 @@ class CheckoutApiTest extends TestCase
         $this->postJson('/api/v1/store/cart/items', ['variant' => $v->uuid, 'qty' => $qty], $headers)->assertOk();
     }
 
+    /** مدينة اختبار مستقلّة (بلا سعر توصيل مُهيّأ ⇒ لا رسوم على الإجماليات المتوقّعة). */
+    private function cityId(): int
+    {
+        $gov = Governorate::firstOrCreate(
+            ['name' => 'محافظة الاختبار'], ['country_code' => 'PS', 'is_active' => true],
+        );
+
+        return City::firstOrCreate(
+            ['governorate_id' => $gov->id, 'name' => 'مدينة الاختبار'], ['is_active' => true],
+        )->id;
+    }
+
     /** @return array<string, mixed> */
     private function details(array $overrides = []): array
     {
@@ -58,6 +75,7 @@ class CheckoutApiTest extends TestCase
             'customer_name' => 'عميل تجريبي',
             'customer_phone' => '0500000000',
             'shipping_address' => 'الرياض - حي النخيل - شارع 1',
+            'city_id' => $this->cityId(),
             'payment_method_code' => 'cod',
         ], $overrides);
     }
@@ -141,6 +159,40 @@ class CheckoutApiTest extends TestCase
         $sid = $this->postJson('/api/v1/store/checkout')->json('data.id');
         // لم تُضبط بيانات الشحن/الدفع.
         $this->postJson("/api/v1/store/checkout/{$sid}/place")->assertUnprocessable();
+    }
+
+    public function test_place_rejected_without_city(): void
+    {
+        Sanctum::actingAs($this->admin());
+        $v = $this->sellableVariant();
+        $this->addToCart($v, 1);
+
+        $sid = $this->postJson('/api/v1/store/checkout')->json('data.id');
+        // كل البيانات ما عدا المدينة (وجهة التوصيل) ⇒ الجلسة غير جاهزة ويُرفض الإتمام.
+        $this->patchJson("/api/v1/store/checkout/{$sid}", $this->details(['city_id' => null]))
+            ->assertOk()->assertJsonPath('data.ready', false);
+        $this->postJson("/api/v1/store/checkout/{$sid}/place")->assertUnprocessable();
+    }
+
+    public function test_web_checkout_dispatches_order_to_delivery_company(): void
+    {
+        // مزوّد توصيل وهمي يُرجع رقم تتبّع ⇒ يُثبت ربط طلب الموقع بشركة التوصيل فور الإتمام.
+        config()->set('shipping.provider', 'faketrack');
+        config()->set('shipping.drivers.faketrack.delivery', FakeTrackingDeliveryProvider::class);
+        FakeTrackingDeliveryProvider::$createResult = null;
+        DeliveryProvider::firstOrCreate(['code' => 'faketrack'], ['name' => 'Fake', 'driver' => 'faketrack']);
+
+        Sanctum::actingAs($this->admin());
+        $v = $this->sellableVariant(40, null, 10);
+        $this->addToCart($v, 2);
+
+        $sid = $this->postJson('/api/v1/store/checkout')->json('data.id');
+        $this->patchJson("/api/v1/store/checkout/{$sid}", $this->details())->assertOk();
+        $this->postJson("/api/v1/store/checkout/{$sid}/place")->assertOk();
+
+        $order = Order::where('channel', 'web')->latest('id')->firstOrFail();
+        $this->assertNotEmpty($order->city_id);            // وجهة التوصيل محفوظة على الطلب
+        $this->assertNotEmpty($order->tracking_number);    // رُبط بشركة التوصيل (رقم تتبّع)
     }
 
     public function test_inactive_payment_method_rejected_at_place(): void

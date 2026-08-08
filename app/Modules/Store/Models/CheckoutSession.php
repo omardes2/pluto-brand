@@ -20,7 +20,7 @@ class CheckoutSession extends Model
     protected $fillable = [
         'cart_id', 'user_id', 'session_token', 'status',
         'customer_name', 'customer_phone', 'customer_email',
-        'shipping_address', 'payment_method_code', 'notes', 'order_id',
+        'shipping_address', 'city_id', 'area_id', 'payment_method_code', 'notes', 'order_id',
     ];
 
     public function cart(): BelongsTo
@@ -44,6 +44,7 @@ class CheckoutSession extends Model
         return filled($this->customer_name)
             && filled($this->customer_phone)
             && filled($this->shipping_address)
+            && filled($this->city_id) // وجهة التوصيل إلزامية للربط مع شركة التوصيل
             && filled($this->payment_method_code);
     }
 }

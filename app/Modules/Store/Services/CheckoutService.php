@@ -3,16 +3,18 @@
 namespace App\Modules\Store\Services;
 
 use App\Modules\Foundation\Models\Branch;
+use App\Modules\Foundation\Models\DeliveryCityRate;
 use App\Modules\Foundation\Models\PaymentMethod;
-use App\Modules\Foundation\Services\Settings;
 use App\Modules\Payment\Services\PaymentService;
 use App\Modules\Sales\Models\Order;
 use App\Modules\Sales\Services\OrderService;
+use App\Modules\Shipping\Services\OrderDeliveryDispatcher;
 use App\Modules\Store\Events\CheckoutCompleted;
 use App\Modules\Store\Events\CheckoutStarted;
 use App\Modules\Store\Models\Cart;
 use App\Modules\Store\Models\CheckoutSession;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -27,6 +29,7 @@ class CheckoutService
         private readonly CartService $carts,
         private readonly OrderService $orders,
         private readonly PaymentService $payments,
+        private readonly OrderDeliveryDispatcher $dispatcher,
     ) {}
 
     /** بدء جلسة إتمام من السلة النشطة (تُعاد الجلسة المعلّقة القائمة إن وُجدت). */
@@ -63,7 +66,7 @@ class CheckoutService
         $session->fill(array_filter(
             array_intersect_key($data, array_flip([
                 'customer_name', 'customer_phone', 'customer_email',
-                'shipping_address', 'payment_method_code', 'notes',
+                'shipping_address', 'city_id', 'area_id', 'payment_method_code', 'notes',
             ])),
             fn ($v) => $v !== null,
         ))->save();
@@ -102,6 +105,10 @@ class CheckoutService
 
         $session->update(['status' => 'placed', 'order_id' => $order->id]);
 
+        // ربط الطلب بشركة التوصيل — بعد اعتماد المعاملة (لا استدعاء خارجي داخل الترانزاكشن).
+        // محاولة فورية أفضل جهد؛ وإن تعذّرت تلتقطها المكنسة المجدولة (shipping:dispatch-pending).
+        $this->dispatchToDelivery($order);
+
         // بعد نجاح المعاملة فقط (ADR-018): نقطة امتداد لسياق النمو.
         CheckoutCompleted::dispatch($order);
 
@@ -128,6 +135,8 @@ class CheckoutService
             'customer_phone' => $session->customer_phone,
             'customer_email' => $session->customer_email,
             'shipping_address' => $session->shipping_address,
+            'city_id' => $session->city_id,   // وجهة التوصيل — تُرسَل لشركة التوصيل
+            'area_id' => $session->area_id,
             'channel' => 'web',
             'notes' => $session->notes,
         ];
@@ -140,7 +149,7 @@ class CheckoutService
 
         $year = (int) now()->year;
 
-        return DB::transaction(function () use ($data, $items, $year, $cart, $method) {
+        return DB::transaction(function () use ($data, $items, $year, $cart, $method, $session) {
             // إنشاء الطلب ثم تأكيده وحجز مخزونه (ينعكس على المخزون — معيار قبول المرحلة 3).
             $order = $this->orders->create($data, $items, $year);
             $this->orders->confirm($order);
@@ -148,8 +157,8 @@ class CheckoutService
 
             $order->refresh();
 
-            // رسوم التوصيل من الإعدادات (Production): افتراضي 0 إن لم تُضبط — سلوك متطابق.
-            $shipping = $this->deliveryFee((float) $order->subtotal);
+            // رسوم التوصيل من جدول أسعار مدن المزوّد (نمط Opost) حسب مدينة الوجهة — 0 إن لم تُضبط.
+            $shipping = $this->deliveryFeeForCity($session->city_id);
             if ($shipping > 0) {
                 $this->orders->applyShippingTotal($order, $shipping);
                 $order->refresh();
@@ -171,21 +180,34 @@ class CheckoutService
         }
     }
 
-    /**
-     * رسوم التوصيل المطبَّقة عند الإتمام (Production) — من إعدادات النظام الديناميكية.
-     * افتراضي 0 (غير مضبوطة). مجّانية إن بلغ المجموع الفرعي عتبة الشحن المجاني.
-     */
-    private function deliveryFee(float $subtotal): float
+    /** رسوم توصيل المدينة من جدول أسعار المزوّد (نمط Opost) — 0 إن لم تُضبط. */
+    private function deliveryFeeForCity(?int $cityId): float
     {
-        $fee = (float) Settings::get('delivery.default_fee', 0);
-        if ($fee <= 0) {
-            return 0.0;
-        }
-        $threshold = Settings::get('delivery.free_threshold');
-        if ($threshold !== null && $threshold !== '' && $subtotal >= (float) $threshold) {
+        if ($cityId === null) {
             return 0.0;
         }
 
-        return round($fee, 2);
+        return (float) (DeliveryCityRate::where('is_active', true)
+            ->where('city_id', $cityId)
+            ->value('delivery_fee') ?? 0);
+    }
+
+    /**
+     * إرسال طلب الموقع لشركة التوصيل فور الإتمام (أفضل جهد). أي تعذّر لحظي (المزوّد
+     * متوقّف/شبكة) لا يُفشِل الإتمام — تلتقطه المكنسة المجدولة لاحقًا فيبقى الوصول مضمونًا.
+     */
+    private function dispatchToDelivery(Order $order): void
+    {
+        if (config('shipping.provider', 'null') === 'null' || $order->city_id === null) {
+            return; // لا مزوّد مُفعّل أو لا وجهة — لا شيء لإرساله الآن.
+        }
+
+        try {
+            $this->dispatcher->dispatch($order);
+        } catch (\Throwable $e) {
+            Log::warning('checkout delivery dispatch failed (سيُعاد عبر المجدول): '.$e->getMessage(), [
+                'order' => $order->number,
+            ]);
+        }
     }
 }

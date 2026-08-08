@@ -47,7 +47,32 @@
 
                     <div class="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
                         <h2 class="font-bold text-gray-900">{{ __('storefront.shipping_address') }}</h2>
-                        <textarea id="c-address" x-model="form.shipping_address" required rows="3" class="w-full rounded-lg border-gray-300 focus:border-emerald-500 focus:ring-emerald-500"></textarea>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label for="c-city" class="block text-sm font-medium text-gray-700 mb-1">{{ __('storefront.city') }}</label>
+                                <select id="c-city" x-model.number="form.city_id" required x-on:change="form.area_id=''"
+                                        class="w-full rounded-lg border-gray-300 focus:border-emerald-500 focus:ring-emerald-500">
+                                    <option value="">{{ __('storefront.select_city') }}</option>
+                                    @foreach ($cities as $city)
+                                        <option value="{{ $city->id }}">{{ $city->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div>
+                                <label for="c-area" class="block text-sm font-medium text-gray-700 mb-1">{{ __('storefront.area') }}</label>
+                                <select id="c-area" x-model.number="form.area_id"
+                                        class="w-full rounded-lg border-gray-300 focus:border-emerald-500 focus:ring-emerald-500 disabled:bg-gray-100"
+                                        :disabled="!form.city_id || areasForCity.length === 0">
+                                    <option value="">{{ __('storefront.select_area') }}</option>
+                                    <template x-for="a in areasForCity" :key="a.id">
+                                        <option :value="a.id" x-text="a.name"></option>
+                                    </template>
+                                </select>
+                            </div>
+                        </div>
+                        <textarea id="c-address" x-model="form.shipping_address" required rows="3"
+                                  placeholder="{{ __('storefront.shipping_address') }}"
+                                  class="w-full rounded-lg border-gray-300 focus:border-emerald-500 focus:ring-emerald-500"></textarea>
                     </div>
 
                     <div class="bg-white rounded-xl border border-gray-200 p-5 space-y-3">
@@ -62,9 +87,17 @@
                 {{-- الملخّص --}}
                 <div class="lg:col-span-1">
                     <div class="bg-white rounded-xl border border-gray-200 p-5 sticky top-24">
-                        <div class="flex items-center justify-between text-gray-700 mb-4">
+                        <div class="flex items-center justify-between text-gray-700 mb-2">
                             <span>{{ __('storefront.subtotal') }}</span>
                             <span class="font-bold" x-text="`${Number($store.cart.subtotal).toFixed(2)} {{ __('storefront.currency') }}`"></span>
+                        </div>
+                        <div class="flex items-center justify-between text-gray-600 text-sm mb-2">
+                            <span>{{ __('storefront.shipping') }}</span>
+                            <span x-text="shipping > 0 ? `${shipping.toFixed(2)} {{ __('storefront.currency') }}` : '{{ __('storefront.free') }}'"></span>
+                        </div>
+                        <div class="flex items-center justify-between text-gray-900 font-bold border-t border-gray-100 pt-2 mb-4">
+                            <span>{{ __('storefront.total') }}</span>
+                            <span x-text="`${(Number($store.cart.subtotal) + shipping).toFixed(2)} {{ __('storefront.currency') }}`"></span>
                         </div>
                         <template x-if="error">
                             <p class="text-sm text-rose-600 mb-3" x-text="error"></p>
@@ -90,7 +123,16 @@
                 placing: false,
                 error: null,
                 order: null,
-                form: { customer_name: '', customer_phone: '', customer_email: '', shipping_address: '', payment_method_code: 'cod' },
+                areas: @json($areas),
+                cityRates: @json($cityRates),
+                form: { customer_name: '', customer_phone: '', customer_email: '', shipping_address: '', city_id: '', area_id: '', payment_method_code: 'cod' },
+
+                get areasForCity() {
+                    return this.form.city_id ? this.areas.filter(a => a.city_id === Number(this.form.city_id)) : [];
+                },
+                get shipping() {
+                    return Number(this.cityRates[this.form.city_id] || 0);
+                },
 
                 async init() {
                     try {

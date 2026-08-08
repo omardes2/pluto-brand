@@ -3,6 +3,9 @@
 namespace App\Http\Controllers\Storefront;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Foundation\Models\Area;
+use App\Modules\Foundation\Models\City;
+use App\Modules\Foundation\Models\DeliveryCityRate;
 use App\Modules\Store\Services\StorefrontService;
 use App\Support\Contracts\StorefrontRecommendationProvider;
 use Illuminate\Http\RedirectResponse;
@@ -91,9 +94,22 @@ class StorefrontController extends Controller
 
     public function checkout(): View
     {
+        // وجهات التوصيل: المدن/المناطق الفعّالة + خريطة أسعار مدن المزوّد (نمط Opost)
+        // لعرض رسوم التوصيل حيًّا واحتسابها على الطلب المُرسَل لشركة التوصيل.
+        $cities = City::where('is_active', true)
+            ->orderBy('sort_order')->orderBy('name')->get(['id', 'name']);
+
+        $areas = Area::where('is_active', true)
+            ->whereIn('city_id', $cities->pluck('id'))
+            ->orderBy('sort_order')->orderBy('name')->get(['id', 'name', 'city_id']);
+
         // توصيات في الإتمام (Phase 6 / ADR-045): الأكثر مبيعًا (بيع تكميلي خفيف).
         return view('storefront.checkout', [
             'recommendations' => $this->reco->bestSellers(8),
+            'cities' => $cities,
+            'areas' => $areas,
+            'cityRates' => DeliveryCityRate::where('is_active', true)
+                ->pluck('delivery_fee', 'city_id'),
         ]);
     }
 

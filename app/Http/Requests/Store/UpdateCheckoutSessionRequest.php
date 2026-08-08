@@ -24,6 +24,8 @@ class UpdateCheckoutSessionRequest extends FormRequest
             'customer_phone' => ['sometimes', 'nullable', 'string', 'max:40'],
             'customer_email' => ['sometimes', 'nullable', 'email', 'max:180'],
             'shipping_address' => ['sometimes', 'nullable', 'string', 'max:1000'],
+            'city_id' => ['sometimes', 'nullable', 'integer', 'exists:cities,id'],
+            'area_id' => ['sometimes', 'nullable', 'integer', 'exists:areas,id'],
             'payment_method_code' => ['sometimes', 'nullable', 'string', 'exists:payment_methods,code'],
             'notes' => ['sometimes', 'nullable', 'string', 'max:1000'],
         ];
