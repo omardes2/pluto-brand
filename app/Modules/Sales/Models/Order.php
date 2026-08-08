@@ -34,7 +34,7 @@ class Order extends Model
         'customer_name', 'customer_phone', 'customer_email', 'shipping_address',
         'city_id', 'area_id', 'has_return', 'return_notes',
         'tracking_number', 'delivery_external_id', 'delivery_status',
-        'channel', 'status', 'payment_status', 'assigned_to', 'affiliate_id',
+        'channel', 'pos_shift_id', 'status', 'payment_status', 'assigned_to', 'affiliate_id',
         'subtotal', 'discount_total', 'tax_total', 'shipping_total', 'total', 'amount_paid',
         'notes', 'cancel_reason',
         'confirmed_at', 'reserved_at', 'shipped_at', 'delivered_at', 'cancelled_at', 'settled_at',
