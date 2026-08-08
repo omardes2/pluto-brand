@@ -3,8 +3,6 @@
 namespace Tests\Feature\Pos;
 
 use App\Models\User;
-use App\Modules\Accounting\Models\Account;
-use App\Modules\Accounting\Models\FinancialVoucher;
 use App\Modules\Catalog\Models\Product;
 use App\Modules\Catalog\Models\ProductVariant;
 use App\Modules\Foundation\Models\Branch;
@@ -145,34 +143,5 @@ class PosShiftServiceTest extends TestCase
         $this->assertSame(PosShiftMovement::TYPE_PAY_OUT, $movement->type);
         $this->assertSame('كهرباء', $movement->category);
         $this->assertEquals(170.0, (float) $shift->fresh()->expected_cash); // 200 − 30
-    }
-
-    public function test_expense_posts_voucher_that_credits_the_treasury(): void
-    {
-        $shift = $this->openShift(0);
-        $this->sellCash($shift, 5, 20); // بيع نقدي 100 ⇒ سند قبض يزيد الصندوق (+100)
-
-        $this->shifts()->addExpense($shift->fresh(), 'كهرباء', 30, 'فاتورة');
-
-        $treasury = $shift->fresh()->treasury;
-
-        // سند مصروف مُرحّل على نفس صندوق الوردية بمقدار المصروف.
-        $voucher = FinancialVoucher::where('kind', 'expense')
-            ->where('reference', $shift->number)->latest('id')->firstOrFail();
-        $this->assertSame('posted', $voucher->status);
-        $this->assertEquals(30.0, (float) $voucher->amount);
-        $this->assertSame($treasury->id, $voucher->treasury_id);
-        $this->assertNotNull($voucher->journal_entry_id);
-
-        // القيد: دائن حساب الصندوق 30 (خصم فعلي) + مدين حساب مصروفات نقطة البيع (5010) 30.
-        $lines = $voucher->journalEntry->lines;
-        $treasuryLine = $lines->firstWhere('account_id', $treasury->gl_account_id);
-        $this->assertNotNull($treasuryLine);
-        $this->assertEquals(30.0, (float) $treasuryLine->credit);
-
-        $expenseAccountId = Account::where('code', '5010')->value('id');
-        $expenseLine = $lines->firstWhere('account_id', $expenseAccountId);
-        $this->assertNotNull($expenseLine);
-        $this->assertEquals(30.0, (float) $expenseLine->debit);
     }
 }

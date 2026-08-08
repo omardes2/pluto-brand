@@ -3,9 +3,7 @@
 namespace App\Modules\Pos\Services;
 
 use App\Models\User;
-use App\Modules\Accounting\Models\Account;
 use App\Modules\Accounting\Models\Treasury;
-use App\Modules\Accounting\Services\VoucherService;
 use App\Modules\Pos\Models\PosShift;
 use App\Modules\Pos\Models\PosShiftMovement;
 use App\Modules\Sales\Models\Order;
@@ -24,8 +22,6 @@ class PosShiftService
     private const CASH_IN = [PosShiftMovement::TYPE_CASH_SALE, PosShiftMovement::TYPE_PAY_IN];
 
     private const CASH_OUT = [PosShiftMovement::TYPE_REFUND, PosShiftMovement::TYPE_PAY_OUT];
-
-    public function __construct(private readonly VoucherService $vouchers) {}
 
     /**
      * فتح وردية للكاشير. يمنع فتح وردية ثانية لنفس الكاشير قبل إغلاق الأولى.
@@ -140,47 +136,11 @@ class PosShiftService
                 'created_by' => auth()->id(),
             ]);
 
-            // ترحيل محاسبي: سند مصروف يخصم المبلغ فعليًا من صندوق الوردية
-            // (مدين حساب المصروف / دائن الخزينة) — فلا يبقى الصندوق مضخّمًا بقيمة المصروفات.
-            $this->postExpenseVoucher($shift, $category, $amount, $note);
-
             $shift->expected_cash = $this->computeExpectedCash($shift);
             $shift->save();
 
             return $movement;
         });
-    }
-
-    /**
-     * ترحيل مصروف الدرج محاسبيًا: سند «مصروف» (مدين حساب المصروف / دائن صندوق الوردية).
-     * يُنشأ ويُعتمد ويُرحَّل داخل نفس معاملة تسجيل المصروف — فإن تعذّر الترحيل فشل المصروف كاملًا.
-     */
-    private function postExpenseVoucher(PosShift $shift, string $category, float $amount, ?string $note): void
-    {
-        $treasury = $shift->treasury()->first();
-        if (! $treasury || ! $treasury->gl_account_id) {
-            throw ValidationException::withMessages(['treasury' => __('صندوق الوردية بلا حساب محاسبي — يتعذّر ترحيل المصروف.')]);
-        }
-
-        $code = (string) config('accounting.pos.expense_account', '5010');
-        $account = Account::where('code', $code)->where('is_postable', true)->first();
-        if (! $account) {
-            throw ValidationException::withMessages(['expense' => __('لا يوجد حساب مصروفات صالح للترحيل (:c).', ['c' => $code])]);
-        }
-
-        $voucher = $this->vouchers->create('expense', [
-            'treasury_id' => $treasury->id,
-            'amount' => $amount,
-            'counter_account_id' => $account->id,
-            'category' => $category,
-            'payment_method' => 'cash',
-            'reference' => $shift->number,
-            'description' => __('مصروف نقطة بيع (:c) — وردية :n', ['c' => $category, 'n' => $shift->number]),
-            'notes' => $note,
-            'voucher_date' => now()->toDateString(),
-        ]);
-        $this->vouchers->approve($voucher);
-        $this->vouchers->post($voucher);
     }
 
     /**
