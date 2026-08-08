@@ -42,6 +42,30 @@ class PosReportController extends Controller
         return view('admin.pos.shift-detail', $this->reports->shiftDetail($shift));
     }
 
+    /** كشف مبيعات الأصناف — ماذا انباع وكم كمية (مع الربح) في مدى تاريخي. */
+    public function items(Request $request)
+    {
+        [$from, $to] = $this->range($request);
+
+        return view('admin.pos.items', [
+            'from' => $from,
+            'to' => $to,
+            'data' => $this->reports->itemsSold($from, $to),
+        ]);
+    }
+
+    /** كشف مبيعات الكاشيرين حسب اليوم/التاريخ. */
+    public function cashiers(Request $request)
+    {
+        [$from, $to] = $this->range($request);
+
+        return view('admin.pos.cashiers', [
+            'from' => $from,
+            'to' => $to,
+            'data' => $this->reports->cashierSales($from, $to),
+        ]);
+    }
+
     /** كشف المصروفات في مدى تاريخي. */
     public function expenses(Request $request)
     {

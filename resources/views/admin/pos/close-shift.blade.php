@@ -25,6 +25,10 @@
         <div class="text-gray-500 mb-1">{{ __('مبيعات بطاقة') }}</div>
         <div class="font-extrabold tabular-nums">{{ number_format((float) $shift->card_sales, 2) }} ₪</div>
       </div>
+      <div class="rounded-lg bg-amber-50 border border-amber-200 p-3">
+        <div class="text-amber-700 mb-1">{{ __('مبيعات آجل (ذمم)') }}</div>
+        <div class="font-extrabold tabular-nums text-amber-700">{{ number_format((float) $shift->credit_sales, 2) }} ₪</div>
+      </div>
       <div class="rounded-lg bg-emerald-50 border border-emerald-200 p-3">
         <div class="text-emerald-700 mb-1">{{ __('النقد المتوقّع في الدرج') }}</div>
         <div class="font-extrabold tabular-nums text-emerald-700">{{ number_format((float) $expected, 2) }} ₪</div>

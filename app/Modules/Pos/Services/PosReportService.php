@@ -63,6 +63,119 @@ class PosReportService
     }
 
     /**
+     * كشف مبيعات الأصناف في مدى تاريخي: كل صنف انباع مع الكمية (صافي المرتجعات)
+     * والإيراد والتكلفة والربح — مرتّبًا تنازليًا بالإيراد.
+     *
+     * @return array{rows: array<int, array<string, mixed>>, totals: array<string, float>}
+     */
+    public function itemsSold(string $from, string $to, ?int $branchId = null): array
+    {
+        $orders = Order::query()
+            ->where('channel', 'pos')
+            ->whereNotNull('pos_shift_id')
+            ->whereBetween('created_at', [$from.' 00:00:00', $to.' 23:59:59'])
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
+            ->with('items.variant.product')
+            ->get();
+
+        $items = [];
+        foreach ($orders as $order) {
+            foreach ($order->items as $it) {
+                $netQty = (float) $it->qty - (float) $it->returned_qty;
+                if ($netQty <= 0) {
+                    continue;
+                }
+                $lineRev = $netQty * (float) $it->unit_price;
+                $lineCost = $netQty * (float) ($it->wholesale_cost_snapshot ?? 0);
+
+                $key = $it->variant_id;
+                if (! isset($items[$key])) {
+                    $name = $it->variant?->product?->name ?? $it->variant?->sku ?? '—';
+                    if (! empty($it->variant?->name)) {
+                        $name .= ' — '.$it->variant->name;
+                    }
+                    $items[$key] = ['name' => $name, 'sku' => $it->variant?->sku ?? '—', 'qty' => 0.0, 'revenue' => 0.0, 'cost' => 0.0];
+                }
+                $items[$key]['qty'] += $netQty;
+                $items[$key]['revenue'] += $lineRev;
+                $items[$key]['cost'] += $lineCost;
+            }
+        }
+
+        $items = array_map(function ($r) {
+            $r['qty'] = round($r['qty'], 2);
+            $r['revenue'] = round($r['revenue'], 2);
+            $r['cost'] = round($r['cost'], 2);
+            $r['profit'] = round($r['revenue'] - $r['cost'], 2);
+
+            return $r;
+        }, array_values($items));
+        usort($items, fn ($a, $b) => $b['revenue'] <=> $a['revenue']);
+
+        return [
+            'rows' => $items,
+            'totals' => [
+                'qty' => round(array_sum(array_column($items, 'qty')), 2),
+                'revenue' => round(array_sum(array_column($items, 'revenue')), 2),
+                'cost' => round(array_sum(array_column($items, 'cost')), 2),
+                'profit' => round(array_sum(array_column($items, 'profit')), 2),
+            ],
+        ];
+    }
+
+    /**
+     * كشف مبيعات الكاشيرين في مدى تاريخي: لكل كاشير عدد الفواتير والنقدي/البطاقة/الآجل
+     * وإجمالي المبيعات — من حركات درج البيع مجمّعة حسب كاشير الوردية.
+     *
+     * @return array{rows: array<int, array<string, mixed>>, totals: array<string, mixed>}
+     */
+    public function cashierSales(string $from, string $to, ?int $branchId = null): array
+    {
+        $movements = PosShiftMovement::query()
+            ->whereIn('type', [
+                PosShiftMovement::TYPE_CASH_SALE,
+                PosShiftMovement::TYPE_CARD_SALE,
+                PosShiftMovement::TYPE_CREDIT_SALE,
+            ])
+            ->whereBetween('created_at', [$from.' 00:00:00', $to.' 23:59:59'])
+            ->when($branchId, fn ($q) => $q->whereHas('shift', fn ($s) => $s->where('branch_id', $branchId)))
+            ->with('shift.cashier:id,name')
+            ->get(['id', 'pos_shift_id', 'type', 'amount', 'order_id']);
+
+        $rows = $movements
+            ->groupBy(fn ($m) => $m->shift?->user_id ?? 0)
+            ->map(function ($group) {
+                $sumOf = fn (string $type) => (float) $group->where('type', $type)->sum('amount');
+                $cash = $sumOf(PosShiftMovement::TYPE_CASH_SALE);
+                $card = $sumOf(PosShiftMovement::TYPE_CARD_SALE);
+                $credit = $sumOf(PosShiftMovement::TYPE_CREDIT_SALE);
+
+                return [
+                    'cashier' => $group->first()->shift?->cashier?->name ?? __('غير معروف'),
+                    'orders' => $group->pluck('order_id')->filter()->unique()->count(),
+                    'cash' => round($cash, 2),
+                    'card' => round($card, 2),
+                    'credit' => round($credit, 2),
+                    'total' => round($cash + $card + $credit, 2),
+                ];
+            })
+            ->sortByDesc('total')
+            ->values()
+            ->all();
+
+        return [
+            'rows' => $rows,
+            'totals' => [
+                'orders' => array_sum(array_column($rows, 'orders')),
+                'cash' => round(array_sum(array_column($rows, 'cash')), 2),
+                'card' => round(array_sum(array_column($rows, 'card')), 2),
+                'credit' => round(array_sum(array_column($rows, 'credit')), 2),
+                'total' => round(array_sum(array_column($rows, 'total')), 2),
+            ],
+        ];
+    }
+
+    /**
      * قائمة الورديات في مدى تاريخي (حسب وقت الفتح) مع إجمالي مصروفات كل وردية.
      */
     public function shifts(string $from, string $to, ?int $branchId = null): Collection

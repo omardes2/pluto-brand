@@ -293,6 +293,26 @@ class PosWebTest extends TestCase
         $this->assertSame('غداء,كهرباء,وقود', Settings::get('pos.expense_categories'));
     }
 
+    public function test_items_and_cashiers_report_pages_load(): void
+    {
+        $this->actingAs($this->admin());
+        $this->openShiftViaHttp();
+        $this->postJson(route('admin.pos.sell'), [
+            'items' => [['variant_id' => $this->variant->id, 'qty' => 2, 'unit_price' => 20]],
+            'payment_method' => 'cash',
+        ])->assertOk();
+
+        $this->get(route('admin.pos.items'))
+            ->assertOk()
+            ->assertSee('كشف مبيعات الأصناف')
+            ->assertSee('إجمالي الربح');
+
+        $this->get(route('admin.pos.cashiers'))
+            ->assertOk()
+            ->assertSee('مبيعات الكاشيرين')
+            ->assertSee($this->admin()->name);
+    }
+
     public function test_customer_search_and_credit_sale(): void
     {
         $this->actingAs($this->admin());

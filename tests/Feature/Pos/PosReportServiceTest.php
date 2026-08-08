@@ -9,6 +9,7 @@ use App\Modules\Catalog\Models\ProductVariant;
 use App\Modules\Foundation\Models\Branch;
 use App\Modules\Foundation\Models\Warehouse;
 use App\Modules\Inventory\Services\InventoryService;
+use App\Modules\Pos\Models\PosShift;
 use App\Modules\Pos\Services\PosReportService;
 use App\Modules\Pos\Services\PosSaleService;
 use App\Modules\Pos\Services\PosShiftService;
@@ -72,14 +73,68 @@ class PosReportServiceTest extends TestCase
         $this->assertSame($today, $summary['days'][0]['date']);
     }
 
-    public function test_shift_detail_computes_items_sold_and_profit(): void
+    private function openShift(): PosShift
     {
-        $shift = app(PosShiftService::class)->open(User::where('email', 'admin@pluto-brand.com')->first(), [
+        return app(PosShiftService::class)->open(User::where('email', 'admin@pluto-brand.com')->first(), [
             'warehouse_id' => $this->warehouse->id,
             'branch_id' => Branch::default()->id,
             'treasury_id' => Treasury::where('code', 'CB-MAIN')->first()->id,
             'opening_float' => 0,
         ]);
+    }
+
+    public function test_items_sold_aggregates_qty_revenue_and_profit(): void
+    {
+        $shift = $this->openShift();
+        app(PosSaleService::class)->sell($shift->fresh(), [
+            'items' => [['variant_id' => $this->variant->id, 'qty' => 3, 'unit_price' => 20]],
+            'payment_method' => 'cash',
+        ]);
+        app(PosSaleService::class)->sell($shift->fresh(), [
+            'items' => [['variant_id' => $this->variant->id, 'qty' => 2, 'unit_price' => 20]],
+            'payment_method' => 'card',
+        ]);
+
+        $today = now()->toDateString();
+        $data = app(PosReportService::class)->itemsSold($today, $today);
+
+        $this->assertCount(1, $data['rows']);
+        $this->assertEquals(5.0, $data['rows'][0]['qty']);       // 3 + 2
+        $this->assertEquals(100.0, $data['rows'][0]['revenue']);  // 5 × 20
+        $this->assertEquals(50.0, $data['rows'][0]['cost']);      // 5 × 10 (WAC)
+        $this->assertEquals(50.0, $data['rows'][0]['profit']);
+        $this->assertEquals(5.0, $data['totals']['qty']);
+        $this->assertEquals(100.0, $data['totals']['revenue']);
+        $this->assertEquals(50.0, $data['totals']['profit']);
+    }
+
+    public function test_cashier_sales_group_by_cashier_with_payment_split(): void
+    {
+        $shift = $this->openShift();
+        app(PosSaleService::class)->sell($shift->fresh(), [ // نقدي 40
+            'items' => [['variant_id' => $this->variant->id, 'qty' => 2, 'unit_price' => 20]],
+            'payment_method' => 'cash',
+        ]);
+        app(PosSaleService::class)->sell($shift->fresh(), [ // بطاقة 20
+            'items' => [['variant_id' => $this->variant->id, 'qty' => 1, 'unit_price' => 20]],
+            'payment_method' => 'card',
+        ]);
+
+        $today = now()->toDateString();
+        $data = app(PosReportService::class)->cashierSales($today, $today);
+
+        $this->assertCount(1, $data['rows']);
+        $this->assertSame(2, $data['rows'][0]['orders']);
+        $this->assertEquals(40.0, $data['rows'][0]['cash']);
+        $this->assertEquals(20.0, $data['rows'][0]['card']);
+        $this->assertEquals(60.0, $data['rows'][0]['total']);
+        $this->assertEquals(60.0, $data['totals']['total']);
+        $this->assertSame(2, $data['totals']['orders']);
+    }
+
+    public function test_shift_detail_computes_items_sold_and_profit(): void
+    {
+        $shift = $this->openShift();
         app(PosSaleService::class)->sell($shift->fresh(), [
             'items' => [['variant_id' => $this->variant->id, 'qty' => 2, 'unit_price' => 20]],
             'payment_method' => 'cash',
