@@ -85,18 +85,4 @@ class OrderScopingTest extends TestCase
         $res->assertSee('زبون واحد');
         $res->assertSee('زبون اثنان');
     }
-
-    public function test_direct_sale_hidden_and_blocked_for_sales_and_affiliate(): void
-    {
-        foreach (['sales', 'affiliate'] as $role) {
-            $user = $this->user($role);
-            // بند «مبيعات مباشرة» غير ظاهر، والوصول المباشر ممنوع.
-            $this->actingAs($user)->get(route('admin.sales.orders.direct.create'))->assertForbidden();
-            // لكن إنشاء أوردر عادي متاح.
-            $this->actingAs($user)->get(route('admin.sales.orders.create'))->assertOk();
-        }
-
-        // أصحاب العرض الكامل (admin) يصلون للمبيعات المباشرة.
-        $this->actingAs($this->admin())->get(route('admin.sales.orders.direct.create'))->assertOk();
-    }
 }

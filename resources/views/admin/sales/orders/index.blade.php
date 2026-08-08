@@ -1,21 +1,27 @@
-<x-app-layout :title="__('الطلبات')">
+@php $context = $context ?? 'all'; @endphp
+<x-app-layout :title="$listTitle ?? __('الطلبات')">
     <x-admin.header
-        :title="__('طلبات البيع')"
-        :breadcrumbs="[__('الرئيسية') => route('admin.dashboard'), __('المبيعات') => null, __('الطلبات') => null]">
-        @can('createDirect', \App\Modules\Sales\Models\Order::class)
-            <a href="{{ route('admin.sales.orders.direct.create') }}" class="btn-secondary btn-sm">{{ __('مبيعات مباشرة') }}</a>
-        @endcan
-        @can('create', \App\Modules\Sales\Models\Order::class)
-            <a href="{{ route('admin.sales.orders.create') }}" class="btn-primary btn-sm">{{ __('انشاء اوردر') }}</a>
-        @endcan
+        :title="$listTitle ?? __('طلبات البيع')"
+        :breadcrumbs="[__('الرئيسية') => route('admin.dashboard'), __('المبيعات') => null, ($listTitle ?? __('الطلبات')) => null]">
+        @if ($context === 'pos')
+            @can('pos.view')
+                <a href="{{ route('admin.pos.screen') }}" class="btn-primary btn-sm">{{ __('شاشة الكاشير') }}</a>
+            @endcan
+        @else
+            @can('create', \App\Modules\Sales\Models\Order::class)
+                <a href="{{ route('admin.sales.orders.create') }}" class="btn-primary btn-sm">{{ __('انشاء اوردر') }}</a>
+            @endcan
+        @endif
     </x-admin.header>
 
     <x-admin.flash />
 
-    {{-- مؤشّر حالة إرسال الطلبات لشركة التوصيل — لأصحاب العرض الكامل فقط (مؤشّر تشغيلي) --}}
-    @can('sales.orders.view')
-        <x-admin.delivery-status />
-    @endcan
+    {{-- مؤشّر حالة إرسال الطلبات لشركة التوصيل — لطلبات التوصيل فقط (لا نقطة البيع) --}}
+    @if ($context !== 'pos')
+        @can('sales.orders.view')
+            <x-admin.delivery-status />
+        @endcan
+    @endif
 
     {{-- فلاتر (قوائم منسدلة): الحالة + حالة التوصيل + حالة الدفع --}}
     @php
@@ -41,13 +47,15 @@
             <button type="submit" class="btn-secondary btn-sm shrink-0">{{ __('بحث') }}</button>
         </div>
 
-        <div>
-            <select name="sale_type" onchange="this.form.submit()" class="{{ $selectCls }}">
-                <option value="">{{ __('كل المبيعات') }}</option>
-                <option value="normal" @selected(($activeSaleType ?? null) === 'normal')>{{ __('مبيعات عادية') }}</option>
-                <option value="direct" @selected(($activeSaleType ?? null) === 'direct')>{{ __('مبيعات مباشرة') }}</option>
-            </select>
-        </div>
+        @if ($context === 'all')
+            <div>
+                <select name="sale_type" onchange="this.form.submit()" class="{{ $selectCls }}">
+                    <option value="">{{ __('كل المبيعات') }}</option>
+                    <option value="normal" @selected(($activeSaleType ?? null) === 'normal')>{{ __('مبيعات التوصيل') }}</option>
+                    <option value="direct" @selected(($activeSaleType ?? null) === 'direct')>{{ __('مبيعات نقطة البيع') }}</option>
+                </select>
+            </div>
+        @endif
         <div>
             <select name="status" onchange="this.form.submit()" class="{{ $selectCls }}">
                 <option value="">{{ __('كل الحالات') }} ({{ $totalCount }})</option>
@@ -59,14 +67,16 @@
             </select>
         </div>
 
-        <div>
-            <select name="delivery_status" onchange="this.form.submit()" class="{{ $selectCls }}">
-                <option value="">{{ __('كل حالات أوبتيموس') }}</option>
-                @foreach ($deliveryLabels as $key => $label)
-                    <option value="{{ $key }}" @selected(($activeDeliveryStatus ?? null) === $key)>{{ $label }}</option>
-                @endforeach
-            </select>
-        </div>
+        @if ($context !== 'pos')
+            <div>
+                <select name="delivery_status" onchange="this.form.submit()" class="{{ $selectCls }}">
+                    <option value="">{{ __('كل حالات أوبتيموس') }}</option>
+                    @foreach ($deliveryLabels as $key => $label)
+                        <option value="{{ $key }}" @selected(($activeDeliveryStatus ?? null) === $key)>{{ $label }}</option>
+                    @endforeach
+                </select>
+            </div>
+        @endif
 
         <div>
             <select name="payment_status" onchange="this.form.submit()" class="{{ $selectCls }}">
@@ -117,7 +127,7 @@
                 <th>{{ __('اسم المستلم') }}</th>
                 <th>{{ __('المستخدم') }}</th>
                 <th>{{ __('الحالة') }}</th>
-                <th>{{ __('حالة أوبتيموس') }}</th>
+                @if ($context !== 'pos')<th>{{ __('حالة أوبتيموس') }}</th>@endif
                 <th>{{ __('حالة الدفع') }}</th>
                 <th class="text-start">{{ __('الإجمالي') }}</th>
                 <th></th>
@@ -142,7 +152,7 @@
                         {{-- رقم التتبّع/الطلب رابطٌ لصفحة التفاصيل (بديلًا عن زر «عرض») --}}
                         <a href="{{ route('admin.sales.orders.show', $o) }}" class="group inline-flex flex-col hover:underline">
                             @if ($o->channel === 'pos')
-                                <span class="inline-flex items-center rounded-md bg-violet-50 text-violet-700 text-[11px] px-1.5 py-0.5">{{ __('مبيعات مباشرة') }}</span>
+                                <span class="inline-flex items-center rounded-md bg-violet-50 text-violet-700 text-[11px] px-1.5 py-0.5">{{ __('نقطة البيع') }}</span>
                             @elseif ($o->tracking_number)
                                 <span class="font-semibold text-emerald-700 group-hover:text-emerald-800">{{ $o->tracking_number }}</span>
                             @else
@@ -171,6 +181,7 @@
                         @endif
                     </td>
                     <td><x-sales.status :status="$o->status" /></td>
+                    @if ($context !== 'pos')
                     <td class="whitespace-nowrap text-xs">
                         @php $ps = $o->latestShipment?->provider_status; @endphp
                         @if ($ps)
@@ -187,6 +198,7 @@
                             <span class="text-gray-300">—</span>
                         @endif
                     </td>
+                    @endif
                     <td class="whitespace-nowrap">
                         <x-payment.status :status="$o->payment_status ?: 'unpaid'" />
                         @if ($o->payment_status === 'partially_paid')
@@ -227,7 +239,7 @@
                                     <a href="{{ route('admin.sales.orders.edit', $o) }}" class="text-emerald-600 hover:underline text-sm">{{ __('تعديل') }}</a>
                                 @endcan
                             @endif
-                            {{-- مبيعات مباشرة غير مسدَّدة: زر «دفع» يفتح نافذة تحصيل (مبلغ + خزينة) --}}
+                            {{-- طلب نقطة بيع غير مسدَّد (آجل/ذمم): زر «دفع» يفتح نافذة تحصيل (مبلغ + خزينة) --}}
                             @if ($o->channel === 'pos' && $o->payment_status !== 'paid' && $o->status !== 'cancelled')
                                 @can('update', $o)
                                     @php($outstanding = round((float) $o->total - (float) $o->amount_paid, 2))
@@ -273,7 +285,8 @@
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="{{ auth()->user()?->can('sales.orders.delete') ? 10 : 9 }}" class="!p-0">
+                @php($cols = (auth()->user()?->can('sales.orders.delete') ? 10 : 9) - ($context === 'pos' ? 1 : 0))
+                <tr><td colspan="{{ $cols }}" class="!p-0">
                     <x-admin.empty-state
                         :title="__('لا توجد طلبات')"
                         :description="($activeStatus ?? null) ? __('لا توجد طلبات بهذه الحالة.') : __('ابدأ بإنشاء أول طلب بيع.')"

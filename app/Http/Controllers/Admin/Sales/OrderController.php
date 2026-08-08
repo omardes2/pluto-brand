@@ -4,13 +4,11 @@ namespace App\Http\Controllers\Admin\Sales;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Sales\CancelOrderRequest;
-use App\Http\Requests\Sales\StoreDirectSaleRequest;
 use App\Http\Requests\Sales\StoreOrderRequest;
 use App\Http\Requests\Sales\UpdateOrderContactRequest;
 use App\Modules\Accounting\Models\Treasury;
 use App\Modules\Catalog\Models\Product;
 use App\Modules\Catalog\Models\ProductVariant;
-use App\Modules\Crm\Models\Customer;
 use App\Modules\Foundation\Models\Area;
 use App\Modules\Foundation\Models\City;
 use App\Modules\Foundation\Models\DeliveryCityRate;
@@ -38,7 +36,29 @@ class OrderController extends Controller
 
     public function __construct(private readonly OrderService $service) {}
 
+    /** كل الطلبات (كل القنوات). */
     public function index(Request $request): View
+    {
+        return $this->renderList($request, null, 'all', __('كل الطلبات'));
+    }
+
+    /** طلبات الموقع الإلكتروني (يقدّمها الزبون بنفسه من المتجر — channel=web). */
+    public function online(Request $request): View
+    {
+        return $this->renderList($request, 'web', 'web', __('طلبات الموقع الإلكتروني'));
+    }
+
+    /** طلبات نقطة البيع (channel=pos). */
+    public function pos(Request $request): View
+    {
+        return $this->renderList($request, 'pos', 'pos', __('طلبات نقطة البيع'));
+    }
+
+    /**
+     * عرض قائمة الطلبات — مشترك بين «كل الطلبات» والصفحات المخصّصة بقناة.
+     * عند تمرير $forceChannel تُقيَّد القائمة والإحصاءات على تلك القناة ويُخفى فلتر «نوع البيع».
+     */
+    private function renderList(Request $request, ?string $forceChannel, string $context, string $title): View
     {
         $this->authorize('viewAny', Order::class);
 
@@ -54,11 +74,12 @@ class OrderController extends Controller
 
         $search = trim((string) $request->query('search'));
 
-        // نوع البيع: مباشر (channel=pos) أو عادي.
-        $saleType = $request->query('sale_type');
+        // نوع البيع: مباشر (channel=pos) أو عادي — متاح فقط في صفحة «كل الطلبات».
+        $saleType = $forceChannel === null ? $request->query('sale_type') : null;
         $saleType = in_array($saleType, ['direct', 'normal'], true) ? $saleType : null;
 
-        $query = $this->visibleOrders($request)->with(['assignee', 'creator', 'customer', 'latestShipment'])->latest('id');
+        $query = $this->scopedOrders($request, $forceChannel)
+            ->with(['assignee', 'creator', 'customer', 'latestShipment'])->latest('id');
 
         match ($saleType) {
             'direct' => $query->where('channel', 'pos'),
@@ -92,6 +113,8 @@ class OrderController extends Controller
 
         return view('admin.sales.orders.index', [
             'orders' => $query->paginate(20)->withQueryString(),
+            'listTitle' => $title,
+            'context' => $context,
             'statuses' => self::STATUSES,
             'activeStatus' => $status,
             'activeDeliveryStatus' => $deliveryStatus,
@@ -99,14 +122,22 @@ class OrderController extends Controller
             'activeSearch' => $search,
             'activeSaleType' => $saleType,
             'deliveryLabels' => OpostStatus::options(),
-            'statusCounts' => $this->visibleOrders($request)->selectRaw('status, COUNT(*) as c')->groupBy('status')->pluck('c', 'status'),
-            'totalCount' => $this->visibleOrders($request)->count(),
+            'statusCounts' => $this->scopedOrders($request, $forceChannel)->selectRaw('status, COUNT(*) as c')->groupBy('status')->pluck('c', 'status'),
+            'totalCount' => $this->scopedOrders($request, $forceChannel)->count(),
             // خزائن التحصيل (نقدية/بنكية) لنافذة الدفع — مربوطة بحساب GL فقط.
             'treasuries' => Treasury::query()
                 ->where('is_active', true)->whereNotNull('gl_account_id')
                 ->orderByDesc('is_default')->orderBy('type')->orderBy('name')
                 ->get(['id', 'name', 'type']),
         ]);
+    }
+
+    /** أساس الطلبات المرئية مُقيَّدًا بقناة اختيارية. */
+    private function scopedOrders(Request $request, ?string $channel): Builder
+    {
+        $query = $this->visibleOrders($request);
+
+        return $channel === null ? $query : $query->where('channel', $channel);
     }
 
     public function create(): View
@@ -174,73 +205,6 @@ class OrderController extends Controller
 
         return redirect()->route('admin.sales.orders.show', $order)
             ->with('success', __('تم تقديم الطلب: خُصمت الكميات من المخزون ورُحّل محاسبيًا. بانتظار تأكيده لإرساله لشركة التوصيل.'));
-    }
-
-    /** نموذج «مبيعات مباشرة» — بيع من المستودع بلا توصيل خارجي. */
-    public function createDirect(): View
-    {
-        $this->authorize('createDirect', Order::class);
-
-        $products = Product::query()->active()
-            ->with(['defaultVariant', 'primaryImage'])
-            ->orderBy('name')->get()
-            ->filter(fn ($p) => $p->defaultVariant)
-            ->map(fn ($p) => [
-                'name' => $p->name, 'sku' => $p->sku,
-                'variant' => $p->defaultVariant->uuid,
-                'price' => (float) $p->defaultVariant->retail_price,
-                'image' => $p->primaryImage?->url(),
-            ])->values();
-
-        return view('admin.sales.orders.direct', [
-            'products' => $products,
-            // قائمة العملاء المسجّلين للاختيار (بديل عن كتابة الاسم يدويًا).
-            'customers' => Customer::orderBy('name')
-                ->get(['uuid', 'name', 'primary_phone'])
-                ->map(fn ($c) => ['uuid' => $c->uuid, 'name' => $c->name, 'phone' => $c->primary_phone])->values(),
-        ]);
-    }
-
-    public function storeDirect(StoreDirectSaleRequest $request): RedirectResponse
-    {
-        $this->authorize('createDirect', Order::class);
-
-        $warehouse = $request->filled('warehouse')
-            ? Warehouse::where('uuid', $request->validated('warehouse'))->firstOrFail()
-            : $this->defaultWarehouse();
-
-        abort_if($warehouse === null, 422, __('لا يوجد مستودع مُهيّأ.'));
-
-        $items = collect($request->validated('items'))->map(fn ($i) => [
-            'variant_id' => ProductVariant::where('uuid', $i['variant'])->value('id'),
-            'qty' => $i['qty'],
-            'unit_price' => $i['unit_price'],
-            'discount' => $i['discount'] ?? 0,
-        ])->all();
-
-        // عميل مسجّل (اختيار) أو عميل جديد (كتابة الاسم).
-        $customer = $request->filled('customer')
-            ? Customer::where('uuid', $request->validated('customer'))->first()
-            : null;
-
-        $order = $this->service->create([
-            'warehouse_id' => $warehouse->id,
-            'branch_id' => $warehouse->branch_id,
-            'customer_id' => $customer?->id,
-            'customer_name' => $customer?->name ?? $request->validated('customer_name'),
-            'customer_phone' => $customer?->primary_phone ?? ($request->validated('customer_phone') ?? ''),
-            'channel' => 'pos', // علامة «مبيعات مباشرة»
-            'notes' => $request->validated('notes'),
-        ], $items, (int) now()->year);
-
-        try {
-            $this->service->fulfillDirect($order);
-        } catch (ValidationException $e) {
-            return back()->withInput()->with('error', collect($e->errors())->flatten()->first());
-        }
-
-        return redirect()->route('admin.sales.orders.show', $order)
-            ->with('success', __('تمت المبيعة المباشرة وخُصمت الكميات من المخزون.'));
     }
 
     public function show(Order $order): View

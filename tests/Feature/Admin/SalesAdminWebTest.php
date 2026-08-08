@@ -51,6 +51,30 @@ class SalesAdminWebTest extends TestCase
         return $u;
     }
 
+    /**
+     * إنشاء طلب نقطة بيع (channel=pos) مباشرةً عبر خدمة الطلبات — بديل داخلي للاختبارات
+     * بعد إزالة صفحة «مبيعات مباشرة» من الواجهة.
+     *
+     * @param  array<int,array{variant_id:int,qty:float,unit_price:float}>  $items
+     */
+    private function makePosOrder(array $items, array $data = []): Order
+    {
+        $warehouse = Warehouse::where('code', 'WH-MAIN')->firstOrFail();
+        $service = app(OrderService::class);
+
+        $order = $service->create(array_merge([
+            'branch_id' => $warehouse->branch_id,
+            'warehouse_id' => $warehouse->id,
+            'customer_name' => 'زبون',
+            'customer_phone' => '',
+            'channel' => 'pos',
+        ], $data), $items, (int) now()->year);
+
+        $service->fulfillDirect($order);
+
+        return $order->fresh();
+    }
+
     /** مدينة + منطقة صالحتان (التوصيل إجباري على شاشة الإدارة). */
     private function geo(): array
     {
@@ -71,7 +95,7 @@ class SalesAdminWebTest extends TestCase
         $response = $this->actingAs($this->admin())->get('/admin/sales/orders');
         $response->assertOk();
         $response->assertSee('dir="rtl"', false);
-        $response->assertSee('طلبات البيع');
+        $response->assertSee('كل الطلبات');
     }
 
     public function test_create_form_renders(): void
@@ -254,24 +278,45 @@ class SalesAdminWebTest extends TestCase
         $this->assertSame('cancelled', Shipment::where('order_id', $order->id)->value('delivery_status'));
     }
 
-    public function test_direct_sale_form_renders(): void
-    {
-        $this->actingAs($this->admin())->get(route('admin.sales.orders.direct.create'))
-            ->assertOk()->assertSee('مبيعات مباشرة');
-    }
-
-    public function test_direct_sale_fulfills_and_deducts_stock_without_shipment(): void
+    public function test_pos_orders_page_lists_only_pos_channel(): void
     {
         $warehouse = Warehouse::where('code', 'WH-MAIN')->firstOrFail();
         $variant = Product::factory()->create()->defaultVariant;
         app(InventoryService::class)->receive($variant, $warehouse, 10, 5);
 
-        $this->actingAs($this->admin())->post(route('admin.sales.orders.direct.store'), [
-            'customer_name' => 'زبون مباشر',
-            'items' => [['variant' => $variant->uuid, 'qty' => 3, 'unit_price' => 20]],
-        ])->assertRedirect();
+        $this->makePosOrder([['variant_id' => $variant->id, 'qty' => 1, 'unit_price' => 20]], ['customer_name' => 'زبون كاشير فريد']);
+        app(OrderService::class)->create(['branch_id' => Branch::default()->id, 'warehouse_id' => $warehouse->id, 'customer_name' => 'زبون توصيل فريد', 'customer_phone' => '0599000000'], [], 2026);
 
-        $order = Order::latest('id')->first();
+        $this->actingAs($this->admin())->get(route('admin.sales.orders.pos'))
+            ->assertOk()->assertSee('طلبات نقطة البيع')
+            ->assertSee('زبون كاشير فريد')->assertDontSee('زبون توصيل فريد');
+    }
+
+    public function test_online_orders_page_lists_only_web_channel(): void
+    {
+        $warehouse = Warehouse::where('code', 'WH-MAIN')->firstOrFail();
+        $variant = Product::factory()->create()->defaultVariant;
+        app(InventoryService::class)->receive($variant, $warehouse, 10, 5);
+
+        app(OrderService::class)->create(['branch_id' => Branch::default()->id, 'warehouse_id' => $warehouse->id, 'customer_name' => 'زبون الموقع فريد', 'customer_phone' => '0599000000', 'channel' => 'web'], [], 2026);
+        $this->makePosOrder([['variant_id' => $variant->id, 'qty' => 1, 'unit_price' => 20]], ['customer_name' => 'زبون كاشير مستبعد']);
+
+        $this->actingAs($this->admin())->get(route('admin.sales.orders.online'))
+            ->assertOk()->assertSee('طلبات الموقع الإلكتروني')
+            ->assertSee('زبون الموقع فريد')->assertDontSee('زبون كاشير مستبعد');
+    }
+
+    public function test_pos_order_fulfills_and_deducts_stock_without_shipment(): void
+    {
+        $warehouse = Warehouse::where('code', 'WH-MAIN')->firstOrFail();
+        $variant = Product::factory()->create()->defaultVariant;
+        app(InventoryService::class)->receive($variant, $warehouse, 10, 5);
+
+        $order = $this->makePosOrder(
+            [['variant_id' => $variant->id, 'qty' => 3, 'unit_price' => 20]],
+            ['customer_name' => 'زبون مباشر'],
+        );
+
         $this->assertSame('pos', $order->channel);
         $this->assertSame('delivered', $order->status);       // مُسلَّم فورًا
         $this->assertEquals(0, $order->shipments()->count());  // بلا شحنة/توصيل
@@ -281,7 +326,7 @@ class SalesAdminWebTest extends TestCase
         $this->assertEqualsWithDelta(7, $onHand, 0.001);       // 10 − 3
     }
 
-    public function test_direct_sale_with_registered_customer_links_customer(): void
+    public function test_pos_order_with_registered_customer_links_customer(): void
     {
         $warehouse = Warehouse::where('code', 'WH-MAIN')->firstOrFail();
         $variant = Product::factory()->create()->defaultVariant;
@@ -291,12 +336,11 @@ class SalesAdminWebTest extends TestCase
             'branch_id' => Branch::default()->id, 'name' => 'عميل مسجّل', 'primary_phone' => '0599777888',
         ]);
 
-        $this->actingAs($this->admin())->post(route('admin.sales.orders.direct.store'), [
-            'customer' => $customer->uuid,
-            'items' => [['variant' => $variant->uuid, 'qty' => 1, 'unit_price' => 20]],
-        ])->assertRedirect()->assertSessionHasNoErrors();
+        $order = $this->makePosOrder(
+            [['variant_id' => $variant->id, 'qty' => 1, 'unit_price' => 20]],
+            ['customer_id' => $customer->id, 'customer_name' => $customer->name, 'customer_phone' => $customer->primary_phone],
+        );
 
-        $order = Order::latest('id')->first();
         $this->assertSame($customer->id, $order->customer_id);
         $this->assertSame('عميل مسجّل', $order->customer_name);
         $this->assertSame('0599777888', $order->customer_phone);
@@ -324,10 +368,8 @@ class SalesAdminWebTest extends TestCase
         $variant = Product::factory()->create()->defaultVariant;
         app(InventoryService::class)->receive($variant, $warehouse, 10, 5);
 
-        // بيع مباشر (channel=pos)
-        $this->actingAs($this->admin())->post(route('admin.sales.orders.direct.store'), [
-            'customer_name' => 'زبون مباشر فريد', 'items' => [['variant' => $variant->uuid, 'qty' => 1, 'unit_price' => 20]],
-        ])->assertRedirect();
+        // بيع نقطة بيع (channel=pos)
+        $this->makePosOrder([['variant_id' => $variant->id, 'qty' => 1, 'unit_price' => 20]], ['customer_name' => 'زبون مباشر فريد']);
         // طلب عادي
         app(OrderService::class)->create(['branch_id' => Branch::default()->id, 'warehouse_id' => $warehouse->id, 'customer_name' => 'زبون عادي فريد', 'customer_phone' => '0599000000'], [], 2026);
 
@@ -343,11 +385,7 @@ class SalesAdminWebTest extends TestCase
         $variant = Product::factory()->create()->defaultVariant;
         app(InventoryService::class)->receive($variant, $warehouse, 10, 5);
 
-        $this->actingAs($this->admin())->post(route('admin.sales.orders.direct.store'), [
-            'customer_name' => 'زبون نقدي', 'items' => [['variant' => $variant->uuid, 'qty' => 2, 'unit_price' => 30]],
-        ])->assertRedirect();
-
-        $order = Order::where('channel', 'pos')->latest('id')->firstOrFail();
+        $order = $this->makePosOrder([['variant_id' => $variant->id, 'qty' => 2, 'unit_price' => 30]], ['customer_name' => 'زبون نقدي']);
         $this->assertNotSame('paid', $order->payment_status);
 
         $treasury = Treasury::where('code', 'CB-MAIN')->firstOrFail();
@@ -370,11 +408,7 @@ class SalesAdminWebTest extends TestCase
         $variant = Product::factory()->create()->defaultVariant;
         app(InventoryService::class)->receive($variant, $warehouse, 10, 5);
 
-        $this->actingAs($this->admin())->post(route('admin.sales.orders.direct.store'), [
-            'customer_name' => 'زبون جزئي', 'items' => [['variant' => $variant->uuid, 'qty' => 2, 'unit_price' => 30]],
-        ])->assertRedirect();
-
-        $order = Order::where('channel', 'pos')->latest('id')->firstOrFail();
+        $order = $this->makePosOrder([['variant_id' => $variant->id, 'qty' => 2, 'unit_price' => 30]], ['customer_name' => 'زبون جزئي']);
         $treasury = Treasury::where('code', 'CB-MAIN')->firstOrFail();
 
         // دفعة جزئية (نصف المبلغ) → partially_paid
@@ -449,10 +483,7 @@ class SalesAdminWebTest extends TestCase
         $variant = Product::factory()->create()->defaultVariant;
         app(InventoryService::class)->receive($variant, $warehouse, 10, 5);
 
-        $this->actingAs($this->admin())->post(route('admin.sales.orders.direct.store'), [
-            'customer_name' => 'زبون زر الدفع', 'items' => [['variant' => $variant->uuid, 'qty' => 1, 'unit_price' => 15]],
-        ])->assertRedirect();
-        $order = Order::where('channel', 'pos')->latest('id')->firstOrFail();
+        $order = $this->makePosOrder([['variant_id' => $variant->id, 'qty' => 1, 'unit_price' => 15]], ['customer_name' => 'زبون زر الدفع']);
 
         $this->actingAs($this->admin())->get('/admin/sales/orders')
             ->assertOk()

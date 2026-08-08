@@ -38,9 +38,10 @@
             ['admin.pos.reports', 'تقارير نقطة البيع', 'pos.reports.view', 'admin.pos.reports'],
         ]],
         ['المبيعات', 'cart', [
-            ['admin.sales.orders.index', 'المبيعات', ['viewAny', $P('Sales\\Models\\Order')], 'admin.sales.orders.index'],
+            ['admin.sales.orders.index', 'كل الطلبات', ['viewAny', $P('Sales\\Models\\Order')], 'admin.sales.orders.index'],
+            ['admin.sales.orders.online', 'طلبات الموقع الإلكتروني', ['viewAny', $P('Sales\\Models\\Order')], 'admin.sales.orders.online'],
+            ['admin.sales.orders.pos', 'طلبات نقطة البيع', ['viewAny', $P('Sales\\Models\\Order')], 'admin.sales.orders.pos'],
             ['admin.sales.orders.create', 'إنشاء اوردر', ['create', $P('Sales\\Models\\Order')], 'admin.sales.orders.create'],
-            ['admin.sales.orders.direct.create', 'مبيعات مباشرة', ['createDirect', $P('Sales\\Models\\Order')], 'admin.sales.orders.direct.*'],
         ]],
         ['المنتجات', 'box', [
             ['admin.products.index', 'المنتجات', ['viewAny', $P('Catalog\\Models\\Product')], 'admin.products.*'],

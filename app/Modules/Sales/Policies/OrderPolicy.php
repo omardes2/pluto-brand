@@ -24,15 +24,6 @@ class OrderPolicy
         return $user->can('sales.orders.create');
     }
 
-    /**
-     * إنشاء مبيعة مباشرة (نقطة بيع): متاح فقط لأصحاب العرض الكامل (لا لأصحاب «الخاص»)،
-     * فلا يظهر بند «مبيعات مباشرة» لموظف المبيعات/المسوّق.
-     */
-    public function createDirect(User $user): bool
-    {
-        return $user->can('sales.orders.create') && $user->can('sales.orders.view');
-    }
-
     /** الطلب من إنشاء المستخدم أو مُسنَد إليه أو مسوّقه — لتحديد نطاق «عرض الخاص». */
     private function owns(User $user, Order $order): bool
     {
