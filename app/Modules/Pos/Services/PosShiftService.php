@@ -175,6 +175,33 @@ class PosShiftService
     }
 
     /**
+     * تسجيل استرداد نقدي (إرجاع) على الوردية: حركة refund تُخفّض النقد المتوقّع + عدّادات المرتجعات.
+     */
+    public function recordRefund(PosShift $shift, Order $order, float $amount, ?string $note = null): PosShiftMovement
+    {
+        return DB::transaction(function () use ($shift, $order, $amount, $note) {
+            $amount = round($amount, 2);
+
+            $movement = $shift->movements()->create([
+                'type' => PosShiftMovement::TYPE_REFUND,
+                'category' => __('إرجاع'),
+                'amount' => $amount,
+                'order_id' => $order->id,
+                'reference' => $order->number,
+                'note' => $note,
+                'created_by' => auth()->id(),
+            ]);
+
+            $shift->cash_refunds = (float) $shift->cash_refunds + $amount;
+            $shift->total_refunds = (float) $shift->total_refunds + $amount;
+            $shift->expected_cash = $this->computeExpectedCash($shift);
+            $shift->save();
+
+            return $movement;
+        });
+    }
+
+    /**
      * إغلاق الوردية وتسويتها: يحسب النقد المتوقّع، ويقارنه بالمعدود فعليًا (الفرق = معدود − متوقّع).
      */
     public function close(PosShift $shift, float $countedCash, ?string $note = null): PosShift

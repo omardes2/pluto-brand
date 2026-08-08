@@ -277,6 +277,48 @@
     </div>
   </div>
 
+  {{-- نافذة الإرجاع / التبديل --}}
+  <div class="overlay" x-show="showReturn" x-cloak style="display:none" :style="showReturn && 'display:flex'">
+    <div class="receipt" style="width:440px;max-width:94vw">
+      <div class="r-head" style="background:var(--chrome)"><div class="ok">↩</div><b>{{ __('إرجاع / تبديل') }}</b><span>{{ __('بالفاتورة الأصلية') }}</span></div>
+      <div style="padding:18px 20px;display:flex;flex-direction:column;gap:12px">
+        <template x-if="!ret.order">
+          <div style="display:flex;gap:8px">
+            <input class="expi" x-model="ret.number" placeholder="{{ __('رقم الفاتورة (SO-…)') }}" x-on:keydown.enter.prevent="lookupReturn()">
+            <button class="r-new" style="height:42px;padding:0 18px;border-radius:10px;font-weight:800" x-on:click="lookupReturn()">{{ __('بحث') }}</button>
+          </div>
+        </template>
+        <template x-if="ret.order">
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <div style="font-size:12.5px;color:var(--muted)">{{ __('العميل') }}: <b x-text="ret.order.customer_name"></b> · {{ __('الإجمالي') }}: <span class="tnum" x-text="money(ret.order.total)"></span></div>
+            <template x-for="it in ret.items" :key="it.order_item_id">
+              <div style="border:1px solid var(--border);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:8px">
+                <div style="display:flex;justify-content:space-between;gap:8px">
+                  <div class="l-nm" x-text="it.name"></div>
+                  <div style="font-size:12px;color:var(--muted)">{{ __('متاح') }}: <span x-text="it.returnable_qty"></span></div>
+                </div>
+                <div style="display:flex;gap:8px;align-items:center">
+                  <div class="qty"><button x-on:click="if(it.qty<it.returnable_qty)it.qty++">+</button><span class="q tnum" x-text="it.qty"></span><button x-on:click="if(it.qty>0)it.qty--">−</button></div>
+                  <select class="expi" style="flex:1" x-model="it.condition">
+                    <option value="sellable">{{ __('صالح للبيع (يعود للمخزون)') }}</option>
+                    <option value="damaged">{{ __('تالف (لا يعود)') }}</option>
+                  </select>
+                  <div class="tnum" style="font-weight:800;min-width:74px;text-align:end" x-text="money(it.qty*it.unit_price)"></div>
+                </div>
+              </div>
+            </template>
+            <input class="expi" x-model="ret.note" placeholder="{{ __('ملاحظات (اختياري)') }}" maxlength="255">
+            <div class="change"><span>{{ __('إجمالي الاسترداد') }}</span><b class="tnum" x-text="money(retRefund)"></b></div>
+          </div>
+        </template>
+      </div>
+      <div class="r-actions">
+        <button class="r-print" x-on:click="showReturn=false">{{ __('إلغاء') }}</button>
+        <button class="r-new" :disabled="busy || !ret.order" x-on:click="submitReturn()">{{ __('تأكيد الإرجاع') }}</button>
+      </div>
+    </div>
+  </div>
+
   {{-- نافذة المصروف اليومي --}}
   <div class="overlay" x-show="showExpense" x-cloak style="display:none" :style="showExpense && 'display:flex'">
     <div class="receipt" style="width:360px">
@@ -311,9 +353,10 @@ document.addEventListener('alpine:init', () => {
     discount: 0, tendered: null, busy: false,
     showExpense: false, exp: { category: '', amount: null, note: '' },
     expenseCategories: @json($expenseCategories),
+    showReturn: false, ret: { number: '', order: null, items: [], note: '' },
     custName: @json($defaultCustomer), customerId: null,
     receipt: null, toastMsg: '', seq: 1,
-    urls: { products: '{{ route('admin.pos.products') }}', barcode: '{{ route('admin.pos.barcode') }}', sell: '{{ route('admin.pos.sell') }}', receiptBase: '{{ url('admin/pos/receipt') }}', expense: '{{ route('admin.pos.shift.expense') }}' },
+    urls: { products: '{{ route('admin.pos.products') }}', barcode: '{{ route('admin.pos.barcode') }}', sell: '{{ route('admin.pos.sell') }}', receiptBase: '{{ url('admin/pos/receipt') }}', expense: '{{ route('admin.pos.shift.expense') }}', returnLookup: '{{ route('admin.pos.return.lookup') }}', returnPost: '{{ route('admin.pos.return') }}' },
     csrf: document.querySelector('meta[name=csrf-token]').content,
 
     get ticketNo(){ return '{{ $shift->number }}'.replace('SHIFT','POS'); },
@@ -366,7 +409,34 @@ document.addEventListener('alpine:init', () => {
       } catch(e){ this.toast('{{ __('خطأ في الاتصال') }}'); }
       finally{ this.busy=false; }
     },
-    returnMode(){ this.toast('{{ __('الإرجاع / التبديل — قريبًا (المرحلة 5)') }}'); },
+    returnMode(){ this.ret={ number:'', order:null, items:[], note:'' }; this.showReturn=true; },
+    async lookupReturn(){
+      const n=this.ret.number.trim(); if(!n) return;
+      const url=new URL(this.urls.returnLookup, location.origin); url.searchParams.set('number', n);
+      const r=await fetch(url,{headers:{'Accept':'application/json'}});
+      const d=await r.json();
+      if(!r.ok){ this.toast(d.message || '{{ __('فاتورة غير موجودة') }}'); return; }
+      this.ret.order=d.order;
+      this.ret.items=d.items.map(i=>({ ...i, qty:0, condition:'sellable' }));
+    },
+    get retRefund(){ return this.ret.items.reduce((s,i)=>s+(i.qty>0?i.qty*i.unit_price:0),0); },
+    async submitReturn(){
+      if(this.busy || !this.ret.order) return;
+      const lines=this.ret.items.filter(i=>i.qty>0).map(i=>({order_item_id:i.order_item_id,qty:i.qty,condition:i.condition}));
+      if(!lines.length){ this.toast('{{ __('حدّد كمية صنف واحد على الأقل') }}'); return; }
+      this.busy=true;
+      try{
+        const r=await fetch(this.urls.returnPost,{method:'POST',
+          headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':this.csrf},
+          body:JSON.stringify({order_number:this.ret.order.number,lines,note:this.ret.note})});
+        const d=await r.json();
+        if(!r.ok){ this.toast(d.message || '{{ __('تعذّر تنفيذ الإرجاع') }}'); return; }
+        this.showReturn=false;
+        this.toast('{{ __('تم الإرجاع — استُردّ') }} '+this.money(d.refund));
+        this.loadProducts();
+      } catch(e){ this.toast('{{ __('خطأ في الاتصال') }}'); }
+      finally{ this.busy=false; }
+    },
     openExpense(){ this.exp={ category:(this.expenseCategories[0]||''), amount:null, note:'' }; this.showExpense=true; },
     async submitExpense(){
       if(this.busy) return;

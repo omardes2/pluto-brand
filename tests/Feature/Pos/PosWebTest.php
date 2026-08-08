@@ -218,4 +218,40 @@ class PosWebTest extends TestCase
 
         $this->actingAs($user)->get(route('admin.pos.reports'))->assertForbidden();
     }
+
+    public function test_return_lookup_and_refund_flow(): void
+    {
+        $this->actingAs($this->admin());
+        $this->openShiftViaHttp();
+        $this->postJson(route('admin.pos.sell'), [
+            'items' => [['variant_id' => $this->variant->id, 'qty' => 3, 'unit_price' => 20]],
+            'payment_method' => 'cash',
+        ])->assertOk();
+
+        $order = Order::where('channel', 'pos')->firstOrFail();
+
+        $this->getJson(route('admin.pos.return.lookup', ['number' => $order->number]))
+            ->assertOk()
+            ->assertJsonCount(1, 'items')
+            ->assertJsonStructure(['order', 'items' => [['order_item_id', 'name', 'unit_price', 'returnable_qty']]]);
+
+        $res = $this->postJson(route('admin.pos.return'), [
+            'order_number' => $order->number,
+            'lines' => [['order_item_id' => $order->items->first()->id, 'qty' => 1, 'condition' => 'sellable']],
+        ])->assertOk()->assertJsonPath('ok', true);
+        $this->assertEquals(20.0, (float) $res->json('refund'));
+
+        // بيعت 3 (on_hand 97) ثم أُرجع 1 ⇒ 98.
+        $stock = InventoryStock::where('variant_id', $this->variant->id)
+            ->where('warehouse_id', $this->warehouse->id)->firstOrFail();
+        $this->assertEquals(98, (float) $stock->on_hand);
+    }
+
+    public function test_refund_forbidden_without_permission(): void
+    {
+        $user = User::factory()->create(['branch_id' => Branch::default()->id]);
+        $user->givePermissionTo(['pos.view', 'pos.sell', 'pos.shift.manage']); // بلا pos.refund
+
+        $this->actingAs($user)->getJson(route('admin.pos.return.lookup', ['number' => 'X']))->assertForbidden();
+    }
 }

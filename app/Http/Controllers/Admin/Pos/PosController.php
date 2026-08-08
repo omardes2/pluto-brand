@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Pos\CloseShiftRequest;
 use App\Http\Requests\Pos\ExpenseRequest;
 use App\Http\Requests\Pos\OpenShiftRequest;
+use App\Http\Requests\Pos\RefundRequest;
 use App\Http\Requests\Pos\SellRequest;
 use App\Http\Requests\Pos\ShiftMovementRequest;
 use App\Models\User;
@@ -14,6 +15,7 @@ use App\Modules\Foundation\Services\Settings;
 use App\Modules\Pos\Models\PosShift;
 use App\Modules\Pos\Models\PosShiftMovement;
 use App\Modules\Pos\Services\PosCatalogService;
+use App\Modules\Pos\Services\PosReturnService;
 use App\Modules\Pos\Services\PosSaleService;
 use App\Modules\Pos\Services\PosShiftService;
 use App\Modules\Sales\Models\Order;
@@ -28,6 +30,7 @@ class PosController extends Controller
         private readonly PosSaleService $sales,
         private readonly PosShiftService $shifts,
         private readonly PosCatalogService $catalog,
+        private readonly PosReturnService $returns,
     ) {}
 
     /** الوردية المفتوحة للكاشير الحالي (إن وُجدت). */
@@ -192,6 +195,71 @@ class PosController extends Controller
             'paid' => round($paid, 2),
             'change' => $change,
             'method' => $data['payment_method'],
+        ]);
+    }
+
+    /** بحث فاتورة POS قابلة للإرجاع بالرقم — يُرجع بنودها والكمية القابلة للإرجاع. */
+    public function returnLookup(Request $request): JsonResponse
+    {
+        $shift = $this->currentShift();
+        if (! $shift) {
+            return response()->json(['message' => __('لا توجد وردية مفتوحة.')], 422);
+        }
+
+        $number = trim((string) $request->query('number'));
+        $order = Order::where('channel', 'pos')->where('number', $number)
+            ->whereIn('status', ['delivered', 'partially_returned'])
+            ->with('items.variant.product')->first();
+        if (! $order) {
+            return response()->json(['message' => __('لا توجد فاتورة نقطة بيع قابلة للإرجاع بهذا الرقم.')], 404);
+        }
+
+        $items = $order->items->map(function ($i) {
+            $name = $i->variant?->product?->name ?? $i->variant?->sku ?? '—';
+            if (! empty($i->variant?->name)) {
+                $name .= ' — '.$i->variant->name;
+            }
+
+            return [
+                'order_item_id' => $i->id,
+                'name' => $name,
+                'unit_price' => (float) $i->unit_price,
+                'sold_qty' => (float) $i->qty,
+                'returnable_qty' => round((float) $i->qty - (float) $i->returned_qty, 2),
+            ];
+        })->filter(fn ($x) => $x['returnable_qty'] > 0)->values();
+
+        if ($items->isEmpty()) {
+            return response()->json(['message' => __('لا توجد أصناف قابلة للإرجاع في هذه الفاتورة.')], 422);
+        }
+
+        return response()->json([
+            'order' => ['number' => $order->number, 'customer_name' => $order->customer_name, 'total' => (float) $order->total],
+            'items' => $items,
+        ]);
+    }
+
+    /** تنفيذ إرجاع بالفاتورة الأصلية مع استرداد نقدي من الدرج. */
+    public function refund(RefundRequest $request): JsonResponse
+    {
+        $shift = $this->currentShift();
+        if (! $shift) {
+            return response()->json(['message' => __('لا توجد وردية مفتوحة.')], 422);
+        }
+
+        $data = $request->validated();
+        $order = Order::where('channel', 'pos')->where('number', $data['order_number'])->first();
+        if (! $order) {
+            return response()->json(['message' => __('الفاتورة غير موجودة.')], 404);
+        }
+
+        $result = $this->returns->refund($shift, $order, $data['lines'], $data['reason_code'] ?? null, $data['note'] ?? null);
+
+        return response()->json([
+            'ok' => true,
+            'refund' => $result['refund'],
+            'rma' => $result['request']->number,
+            'expected_cash' => $this->shifts->computeExpectedCash($shift->fresh()),
         ]);
     }
 
