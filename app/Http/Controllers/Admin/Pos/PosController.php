@@ -7,12 +7,15 @@ use App\Http\Requests\Pos\CloseShiftRequest;
 use App\Http\Requests\Pos\OpenShiftRequest;
 use App\Http\Requests\Pos\SellRequest;
 use App\Http\Requests\Pos\ShiftMovementRequest;
+use App\Models\User;
 use App\Modules\Foundation\Models\Warehouse;
 use App\Modules\Foundation\Services\Settings;
 use App\Modules\Pos\Models\PosShift;
+use App\Modules\Pos\Models\PosShiftMovement;
 use App\Modules\Pos\Services\PosCatalogService;
 use App\Modules\Pos\Services\PosSaleService;
 use App\Modules\Pos\Services\PosShiftService;
+use App\Modules\Sales\Models\Order;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -166,6 +169,7 @@ class PosController extends Controller
 
         return response()->json([
             'ok' => true,
+            'uuid' => $order->uuid,
             'number' => $order->number,
             'subtotal' => (float) $order->subtotal,
             'discount_total' => (float) $order->discount_total,
@@ -173,6 +177,24 @@ class PosController extends Controller
             'paid' => round($paid, 2),
             'change' => $change,
             'method' => $data['payment_method'],
+        ]);
+    }
+
+    /** إيصال قابل للطباعة (80mm) لفاتورة نقطة بيع. */
+    public function receipt(Order $order)
+    {
+        abort_unless($order->channel === 'pos', 404);
+
+        $order->load(['items.variant.product']);
+        $movement = PosShiftMovement::where('order_id', $order->id)
+            ->whereIn('type', [PosShiftMovement::TYPE_CASH_SALE, PosShiftMovement::TYPE_CARD_SALE])
+            ->first();
+
+        return view('admin.pos.receipt', [
+            'order' => $order,
+            'method' => $movement && $movement->type === PosShiftMovement::TYPE_CARD_SALE ? 'card' : 'cash',
+            'cashierName' => optional(User::find($order->created_by))->name,
+            'autoPrint' => request()->boolean('print'),
         ]);
     }
 }

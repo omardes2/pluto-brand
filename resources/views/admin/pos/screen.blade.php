@@ -265,7 +265,7 @@
         <div style="font-size:11px;color:var(--faint);text-align:center;padding-top:8px">{{ \App\Modules\Foundation\Services\Settings::get('pos.receipt_footer', '') }}</div>
       </div>
       <div class="r-actions">
-        <button class="r-print" x-on:click="window.print()">🖨 {{ __('طباعة') }}</button>
+        <button class="r-print" x-on:click="printReceipt()">🖨 {{ __('طباعة') }}</button>
         <button class="r-new" x-on:click="newSale()">{{ __('بيع جديد') }}</button>
       </div>
     </div>
@@ -284,7 +284,7 @@ document.addEventListener('alpine:init', () => {
     discount: 0, tendered: null, busy: false,
     custName: @json($defaultCustomer), customerId: null,
     receipt: null, toastMsg: '', seq: 1,
-    urls: { products: '{{ route('admin.pos.products') }}', barcode: '{{ route('admin.pos.barcode') }}', sell: '{{ route('admin.pos.sell') }}' },
+    urls: { products: '{{ route('admin.pos.products') }}', barcode: '{{ route('admin.pos.barcode') }}', sell: '{{ route('admin.pos.sell') }}', receiptBase: '{{ url('admin/pos/receipt') }}' },
     csrf: document.querySelector('meta[name=csrf-token]').content,
 
     get ticketNo(){ return '{{ $shift->number }}'.replace('SHIFT','POS'); },
@@ -337,6 +337,7 @@ document.addEventListener('alpine:init', () => {
       } catch(e){ this.toast('{{ __('خطأ في الاتصال') }}'); }
       finally{ this.busy=false; }
     },
+    printReceipt(){ if(this.receipt?.uuid) window.open(this.urls.receiptBase+'/'+this.receipt.uuid+'?print=1','_blank'); },
     newSale(){ this.receipt=null; this.cart=[]; this.discount=0; this.tendered=null; this.loadProducts(); },
   }));
 });

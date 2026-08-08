@@ -143,4 +143,39 @@ class PosWebTest extends TestCase
         $user = User::factory()->create(['branch_id' => Branch::default()->id]);
         $this->actingAs($user)->get(route('admin.pos.screen'))->assertForbidden();
     }
+
+    public function test_receipt_renders_for_pos_order(): void
+    {
+        $this->actingAs($this->admin());
+        $this->openShiftViaHttp();
+        $this->postJson(route('admin.pos.sell'), [
+            'items' => [['variant_id' => $this->variant->id, 'qty' => 2, 'unit_price' => 20]],
+            'payment_method' => 'cash',
+        ])->assertOk();
+
+        $order = Order::where('channel', 'pos')->firstOrFail();
+
+        $this->get(route('admin.pos.receipt', $order))
+            ->assertOk()
+            ->assertSee($order->number)
+            ->assertSee('Pluto Brand');
+    }
+
+    public function test_receipt_rejects_non_pos_order(): void
+    {
+        $order = Order::create([
+            'number' => 'SO-2026-000999',
+            'branch_id' => Branch::default()->id,
+            'warehouse_id' => $this->warehouse->id,
+            'customer_name' => 'عميل',
+            'customer_phone' => '0000000000',
+            'channel' => 'manual',
+            'status' => 'draft',
+            'payment_status' => 'unpaid',
+        ]);
+
+        $this->actingAs($this->admin())
+            ->get(route('admin.pos.receipt', $order))
+            ->assertNotFound();
+    }
 }

@@ -328,6 +328,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::get('products', [PosController::class, 'products'])->name('products')->middleware('can:pos.sell');
         Route::get('barcode', [PosController::class, 'barcode'])->name('barcode')->middleware('can:pos.sell');
         Route::post('sell', [PosController::class, 'sell'])->name('sell')->middleware('can:pos.sell');
+        Route::get('receipt/{order}', [PosController::class, 'receipt'])->name('receipt')->middleware('can:pos.view');
     });
 
     // إدارة المستخدمين/الموظّفين (Production)
