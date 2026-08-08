@@ -255,6 +255,24 @@ class PosWebTest extends TestCase
         $this->actingAs($user)->getJson(route('admin.pos.return.lookup', ['number' => 'X']))->assertForbidden();
     }
 
+    public function test_shifts_list_and_detail_pages(): void
+    {
+        $this->actingAs($this->admin());
+        $this->openShiftViaHttp();
+        $this->postJson(route('admin.pos.sell'), [
+            'items' => [['variant_id' => $this->variant->id, 'qty' => 2, 'unit_price' => 20]],
+            'payment_method' => 'cash',
+        ])->assertOk();
+
+        $shift = PosShift::where('user_id', $this->admin()->id)->firstOrFail();
+
+        $this->get(route('admin.pos.shifts'))->assertOk()->assertSee($shift->number);
+        $this->get(route('admin.pos.shifts.show', $shift))
+            ->assertOk()
+            ->assertSee('الأصناف المباعة')
+            ->assertSee('ربح الوردية');
+    }
+
     public function test_no_invoice_refund_endpoint(): void
     {
         $this->actingAs($this->admin());

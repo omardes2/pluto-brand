@@ -71,4 +71,28 @@ class PosReportServiceTest extends TestCase
         $this->assertCount(1, $summary['days']);
         $this->assertSame($today, $summary['days'][0]['date']);
     }
+
+    public function test_shift_detail_computes_items_sold_and_profit(): void
+    {
+        $shift = app(PosShiftService::class)->open(User::where('email', 'admin@pluto-brand.com')->first(), [
+            'warehouse_id' => $this->warehouse->id,
+            'branch_id' => Branch::default()->id,
+            'treasury_id' => Treasury::where('code', 'CB-MAIN')->first()->id,
+            'opening_float' => 0,
+        ]);
+        app(PosSaleService::class)->sell($shift->fresh(), [
+            'items' => [['variant_id' => $this->variant->id, 'qty' => 2, 'unit_price' => 20]],
+            'payment_method' => 'cash',
+        ]);
+
+        $detail = app(PosReportService::class)->shiftDetail($shift->fresh());
+
+        $this->assertCount(1, $detail['items']);
+        $this->assertEquals(2.0, $detail['items'][0]['qty']);
+        $this->assertEquals(40.0, $detail['items'][0]['revenue']);
+        $this->assertEquals(20.0, $detail['items'][0]['cost']);   // 2 × 10 (WAC)
+        $this->assertEquals(20.0, $detail['items'][0]['profit']);
+        $this->assertEquals(20.0, $detail['totals']['profit']);
+        $this->assertEquals(40.0, $detail['totals']['net_cash']); // متوقّع 40 − افتتاحي 0
+    }
 }

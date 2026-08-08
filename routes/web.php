@@ -328,6 +328,8 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::post('shift/movement', [PosController::class, 'movement'])->name('shift.movement')->middleware('can:pos.shift.manage');
         Route::post('shift/expense', [PosController::class, 'expense'])->name('shift.expense')->middleware('can:pos.shift.manage');
         Route::get('reports', [PosReportController::class, 'index'])->name('reports')->middleware('can:pos.reports.view');
+        Route::get('shifts', [PosReportController::class, 'shifts'])->name('shifts')->middleware('can:pos.reports.view');
+        Route::get('shifts/{shift}', [PosReportController::class, 'shiftDetail'])->name('shifts.show')->middleware('can:pos.reports.view');
         Route::get('products', [PosController::class, 'products'])->name('products')->middleware('can:pos.sell');
         Route::get('barcode', [PosController::class, 'barcode'])->name('barcode')->middleware('can:pos.sell');
         Route::post('sell', [PosController::class, 'sell'])->name('sell')->middleware('can:pos.sell');

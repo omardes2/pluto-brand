@@ -3,6 +3,7 @@
 namespace App\Modules\Pos\Services;
 
 use App\Modules\Foundation\Services\Settings;
+use App\Modules\Inventory\Models\InventoryStock;
 use App\Modules\Pos\Models\PosShift;
 use App\Modules\Sales\Models\Order;
 use App\Modules\Sales\Services\OrderPaymentService;
@@ -61,6 +62,17 @@ class PosSaleService
 
             $order = $this->orders->create($data, $items, (int) now()->year);
             $order->update(['pos_shift_id' => $shift->id]);
+
+            // لقطة تكلفة الوحدة (WAC للمستودع) على البنود لحساب الأرباح في تقارير الوردية.
+            $order->loadMissing('items');
+            $stocks = InventoryStock::where('warehouse_id', $shift->warehouse_id)
+                ->whereIn('variant_id', $order->items->pluck('variant_id'))->get()->keyBy('variant_id');
+            foreach ($order->items as $item) {
+                $cost = optional($stocks->get($item->variant_id))->average_cost;
+                if ($cost !== null) {
+                    $item->update(['wholesale_cost_snapshot' => $cost]);
+                }
+            }
 
             // بيع مباشر: تأكيد + حجز + شحن + تسليم فوري (ترحيل محاسبي وخصم مخزون).
             $this->orders->fulfillDirect($order);
