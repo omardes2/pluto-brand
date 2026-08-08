@@ -7,6 +7,7 @@ use App\Modules\Foundation\Models\City;
 use App\Modules\Foundation\Models\DeliveryProvider;
 use App\Modules\Foundation\Models\GeoProviderMapping;
 use App\Modules\Sales\Models\Order;
+use App\Modules\Sales\Services\OrderService;
 use App\Modules\Shipping\Models\Shipment;
 use App\Support\Integrations\Shipping\DeliveryProviderManager;
 use App\Support\NumberGenerator;
@@ -23,7 +24,10 @@ use Illuminate\Support\Facades\Log;
  */
 class OrderDeliveryDispatcher
 {
-    public function __construct(private readonly DeliveryProviderManager $manager) {}
+    public function __construct(
+        private readonly DeliveryProviderManager $manager,
+        private readonly OrderService $orders,
+    ) {}
 
     /**
      * @return array{status: string, tracking_number?: ?string, message?: ?string}
@@ -70,6 +74,10 @@ class OrderDeliveryDispatcher
             }
 
             $this->persist($order, $provider?->id, $tracking, $externalId, $result);
+
+            // خصم المخزون فعليًا لحظة خروج البضاعة لشركة التوصيل — لطلبات الموقع المحجوزة فقط
+            // (طلبات الأدمن تُشحن مسبقًا فلا يتكرّر الخصم). دفاعيًا: فشله لا يُبطل الشحنة.
+            $this->deductStockOnDispatch($order);
 
             return ['status' => 'created', 'tracking_number' => $tracking];
         } catch (\Throwable $e) {
@@ -165,6 +173,24 @@ class OrderDeliveryDispatcher
     }
 
     /** تخزين لقطة التتبّع على الطلب وإنشاء سجلّ شحنة محلي مطابق. */
+    /**
+     * خصم المخزون (on_hand) بعد نجاح الإرسال لشركة التوصيل — للطلبات المحجوزة فقط
+     * (حالة stock_reserved، أي طلبات الموقع). الطلبات المشحونة مسبقًا (الأدمن) تُتخطّى.
+     */
+    private function deductStockOnDispatch(Order $order): void
+    {
+        $order->refresh();
+        if ($order->status !== 'stock_reserved') {
+            return;
+        }
+
+        try {
+            $this->orders->shipFromReserved($order);
+        } catch (\Throwable $e) {
+            Log::warning('post-dispatch stock deduction failed: '.$e->getMessage(), ['order' => $order->number]);
+        }
+    }
+
     private function persist(Order $order, ?int $providerId, ?string $tracking, ?string $externalId, array $result): void
     {
         DB::transaction(function () use ($order, $providerId, $tracking, $externalId, $result) {

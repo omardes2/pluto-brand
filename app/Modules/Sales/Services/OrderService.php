@@ -339,6 +339,22 @@ class OrderService
     }
 
     /**
+     * تقديم طلب محجوز مباشرةً إلى «مُشحَن» (تحضير → جاهز → شحن) في معاملة واحدة —
+     * فيُستهلك الحجز ويُخصم on_hand فعليًا. يُستخدم عند إرسال طلب الموقع لشركة التوصيل
+     * (خصم المخزون لحظة خروج البضاعة). لا أثر على الطلبات المشحونة مسبقًا (تُتخطّى في المنادي).
+     */
+    public function shipFromReserved(Order $order): Order
+    {
+        return DB::transaction(function () use ($order) {
+            $this->startPreparing($order);
+            $this->markReady($order);
+            $this->ship($order);
+
+            return $order->fresh();
+        });
+    }
+
+    /**
      * الحالات التشغيلية للتوصيل (BR-ORD-10، ADR-010) — تُقاد من وحدة الشحن (Phase 2.7).
      * كانت معرّفة في 2.6 ومؤجّلة المسارات؛ هنا تُفتح دون تغيير الأثر المالي/المخزوني.
      */

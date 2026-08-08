@@ -126,7 +126,6 @@
                 <th>{{ __('التاريخ والوقت') }}</th>
                 <th>{{ __('اسم المستلم') }}</th>
                 <th>{{ __('المستخدم') }}</th>
-                <th>{{ __('الحالة') }}</th>
                 @if ($context !== 'pos')<th>{{ __('حالة أوبتيموس') }}</th>@endif
                 <th>{{ __('حالة الدفع') }}</th>
                 <th class="text-start">{{ __('الإجمالي') }}</th>
@@ -180,7 +179,6 @@
                             <x-admin.badge tone="blue" :label="__('زبون')" :icon="false" />
                         @endif
                     </td>
-                    <td><x-sales.status :status="$o->status" /></td>
                     @if ($context !== 'pos')
                     <td class="whitespace-nowrap text-xs">
                         @php $ps = $o->latestShipment?->provider_status; @endphp
@@ -285,7 +283,7 @@
                     </td>
                 </tr>
             @empty
-                @php($cols = (auth()->user()?->can('sales.orders.delete') ? 10 : 9) - ($context === 'pos' ? 1 : 0))
+                @php($cols = (auth()->user()?->can('sales.orders.delete') ? 9 : 8) - ($context === 'pos' ? 1 : 0))
                 <tr><td colspan="{{ $cols }}" class="!p-0">
                     <x-admin.empty-state
                         :title="__('لا توجد طلبات')"

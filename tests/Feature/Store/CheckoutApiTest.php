@@ -5,6 +5,7 @@ namespace Tests\Feature\Store;
 use App\Models\User;
 use App\Modules\Catalog\Models\Product;
 use App\Modules\Catalog\Models\ProductVariant;
+use App\Modules\Foundation\Models\Branch;
 use App\Modules\Foundation\Models\City;
 use App\Modules\Foundation\Models\DeliveryProvider;
 use App\Modules\Foundation\Models\Governorate;
@@ -12,6 +13,8 @@ use App\Modules\Foundation\Models\Warehouse;
 use App\Modules\Inventory\Models\InventoryStock;
 use App\Modules\Inventory\Services\InventoryService;
 use App\Modules\Sales\Models\Order;
+use App\Modules\Sales\Services\OrderService;
+use App\Modules\Shipping\Services\OrderDeliveryDispatcher;
 use App\Modules\Store\Events\CheckoutCompleted;
 use App\Modules\Store\Events\CheckoutStarted;
 use Database\Seeders\DatabaseSeeder;
@@ -193,6 +196,40 @@ class CheckoutApiTest extends TestCase
         $order = Order::where('channel', 'web')->latest('id')->firstOrFail();
         $this->assertNotEmpty($order->city_id);            // وجهة التوصيل محفوظة على الطلب
         $this->assertNotEmpty($order->tracking_number);    // رُبط بشركة التوصيل (رقم تتبّع)
+        $this->assertSame('shipped', $order->status);      // خرج للتوصيل ⇒ مُشحَن
+
+        // المخزون خُصم فعليًا لحظة الإرسال (10 − 2)، واستُهلك الحجز.
+        $stock = InventoryStock::where('variant_id', $v->id)
+            ->where('warehouse_id', $this->warehouse->id)->firstOrFail();
+        $this->assertEquals(8.0, (float) $stock->on_hand);
+        $this->assertEquals(0.0, (float) $stock->reserved);
+    }
+
+    public function test_dispatch_does_not_double_deduct_already_shipped_order(): void
+    {
+        config()->set('shipping.provider', 'faketrack');
+        config()->set('shipping.drivers.faketrack.delivery', FakeTrackingDeliveryProvider::class);
+        FakeTrackingDeliveryProvider::$createResult = null;
+        DeliveryProvider::firstOrCreate(['code' => 'faketrack'], ['name' => 'Fake', 'driver' => 'faketrack']);
+
+        $v = $this->sellableVariant(40, null, 10);
+
+        // طلب أدمن مشحون مسبقًا (fulfillToShipped) ⇒ on_hand = 8 وحالته «مُشحَن».
+        $order = app(OrderService::class)->create([
+            'branch_id' => Branch::default()->id,
+            'warehouse_id' => $this->warehouse->id,
+            'customer_name' => 'زبون توصيل', 'customer_phone' => '0599000000',
+            'city_id' => $this->cityId(), 'channel' => 'manual',
+        ], [['variant_id' => $v->id, 'qty' => 2, 'unit_price' => 40]], 2026);
+        app(OrderService::class)->fulfillToShipped($order);
+        $this->assertSame('shipped', $order->fresh()->status);
+
+        // الإرسال لشركة التوصيل لا يُعيد خصم المخزون (الطلب ليس محجوزًا).
+        app(OrderDeliveryDispatcher::class)->dispatch($order->fresh());
+
+        $stock = InventoryStock::where('variant_id', $v->id)
+            ->where('warehouse_id', $this->warehouse->id)->firstOrFail();
+        $this->assertEquals(8.0, (float) $stock->on_hand); // بقي 8 (لا خصم مزدوج)
     }
 
     public function test_inactive_payment_method_rejected_at_place(): void

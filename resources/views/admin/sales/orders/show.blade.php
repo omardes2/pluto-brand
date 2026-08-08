@@ -125,21 +125,6 @@
                    class="px-4 py-2 bg-slate-700 text-white text-sm rounded-md hover:bg-slate-800">{{ __('الفاتورة') }}</a>
                 <a href="{{ route('admin.sales.orders.index') }}" class="px-4 py-2 bg-gray-100 text-gray-700 text-sm rounded-md">{{ __('رجوع') }}</a>
             </div>
-
-            {{-- سجلّ الحالات --}}
-            <div class="border-t pt-3">
-                <h3 class="text-sm font-medium text-gray-700 mb-2">{{ __('سجلّ الحالات') }}</h3>
-                <ul class="text-sm space-y-1">
-                    @foreach ($order->statusHistory as $h)
-                        <li class="text-gray-600">
-                            <span class="text-gray-400">{{ $h->created_at?->format('Y-m-d H:i') }}</span>
-                            — <x-sales.status :status="$h->to_status" />
-                            @if ($h->changedBy) <span class="text-gray-400">({{ $h->changedBy->name }})</span> @endif
-                            @if ($h->note) <span class="text-gray-500">— {{ $h->note }}</span> @endif
-                        </li>
-                    @endforeach
-                </ul>
-            </div>
         </div>
     </div>
 </x-app-layout>
