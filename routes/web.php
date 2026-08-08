@@ -25,6 +25,7 @@ use App\Http\Controllers\Admin\Inventory\WarehouseController as AdminWarehouseCo
 use App\Http\Controllers\Admin\Marketing\CampaignController as AdminCampaignController;
 use App\Http\Controllers\Admin\Marketing\CampaignTemplateController as AdminCampaignTemplateController;
 use App\Http\Controllers\Admin\Payment\PaymentController as AdminPaymentController;
+use App\Http\Controllers\Admin\Pos\PosController;
 use App\Http\Controllers\Admin\Purchasing\GoodsReceiptController as AdminGoodsReceiptController;
 use App\Http\Controllers\Admin\Purchasing\PurchaseInvoiceController;
 use App\Http\Controllers\Admin\Purchasing\PurchaseOrderController as AdminPurchaseOrderController;
@@ -315,6 +316,19 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
 
     // لوحة التحكّم التنفيذية (Production) — للقراءة فقط
     Route::get('dashboard', [AdminDashboardController::class, 'index'])->name('dashboard')->middleware('can:dashboard.view');
+
+    // نقطة البيع (POS) — شاشة الكاشير والوردية
+    Route::prefix('pos')->name('pos.')->group(function () {
+        Route::get('/', [PosController::class, 'screen'])->name('screen')->middleware('can:pos.view');
+        Route::get('shift/open', [PosController::class, 'openForm'])->name('shift.open_form')->middleware('can:pos.shift.manage');
+        Route::post('shift/open', [PosController::class, 'open'])->name('shift.open')->middleware('can:pos.shift.manage');
+        Route::get('shift/close', [PosController::class, 'closeForm'])->name('shift.close_form')->middleware('can:pos.shift.manage');
+        Route::post('shift/close', [PosController::class, 'close'])->name('shift.close')->middleware('can:pos.shift.manage');
+        Route::post('shift/movement', [PosController::class, 'movement'])->name('shift.movement')->middleware('can:pos.shift.manage');
+        Route::get('products', [PosController::class, 'products'])->name('products')->middleware('can:pos.sell');
+        Route::get('barcode', [PosController::class, 'barcode'])->name('barcode')->middleware('can:pos.sell');
+        Route::post('sell', [PosController::class, 'sell'])->name('sell')->middleware('can:pos.sell');
+    });
 
     // إدارة المستخدمين/الموظّفين (Production)
     Route::prefix('users')->name('users.')->group(function () {
