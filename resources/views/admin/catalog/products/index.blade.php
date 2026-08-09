@@ -4,6 +4,7 @@
         :description="__('إدارة أصناف الكتالوج وأسعارها ومخزونها وظهورها على الموقع.')"
         :breadcrumbs="[__('الرئيسية') => route('admin.dashboard'), __('الكتالوج') => null, __('المنتجات') => null]">
         @can('create', \App\Modules\Catalog\Models\Product::class)
+            <a href="{{ route('admin.products.import.form') }}" class="btn-secondary btn-sm">{{ __('استيراد Excel/CSV') }}</a>
             <a href="{{ route('admin.products.create') }}" class="btn-primary btn-sm">{{ __('منتج جديد') }}</a>
         @endcan
     </x-admin.header>
