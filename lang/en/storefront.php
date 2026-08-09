@@ -40,6 +40,7 @@ return [
     // Product card / details
     'add_to_cart' => 'Add to cart',
     'added' => 'Added',
+    'select_options' => 'Select options',
     'in_stock' => 'In stock',
     'out_of_stock' => 'Out of stock',
     'low_stock' => 'Low stock',

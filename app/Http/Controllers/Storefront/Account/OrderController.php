@@ -33,7 +33,7 @@ class OrderController extends Controller
         $this->authorizeOrder($order);
 
         return view('storefront.account.orders.show', [
-            'order' => $order->load(['items.variant', 'statusHistory', 'shipments', 'payments']),
+            'order' => $order->load(['items.variant.product', 'statusHistory', 'shipments', 'payments']),
         ]);
     }
 

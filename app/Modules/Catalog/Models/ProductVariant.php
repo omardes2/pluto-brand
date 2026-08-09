@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -50,6 +51,29 @@ class ProductVariant extends Model
     public function inventoryStocks(): HasMany
     {
         return $this->hasMany(InventoryStock::class, 'variant_id');
+    }
+
+    /** قيم السمات (مقاس/لون…) التي يحملها هذا المتغيّر. */
+    public function attributeValues(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            ProductAttributeValue::class,
+            'variant_attribute_values',
+            'variant_id',
+            'attribute_value_id'
+        )->withPivot('attribute_id')->withTimestamps();
+    }
+
+    /**
+     * تسمية الخيارات للعرض في الطلب/الإيصال، مثل «L / أسود».
+     * تُرتَّب حسب ترتيب السمة ثم ترتيب القيمة. تعتمد على تحميل attributeValues.attribute.
+     */
+    public function optionLabel(): string
+    {
+        return $this->attributeValues
+            ->sortBy(fn ($v) => sprintf('%05d-%05d', $v->attribute?->sort_order ?? 0, $v->sort_order ?? 0))
+            ->map(fn ($v) => $v->label ?: $v->value)
+            ->implode(' / ');
     }
 
     protected static function newFactory(): Factory

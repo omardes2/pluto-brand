@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 /**
  * قيمة سمة (PHASE_2_DESIGN §19). فرادة مركّبة (attribute_id, value).
@@ -25,6 +26,17 @@ class ProductAttributeValue extends Model
     public function attribute(): BelongsTo
     {
         return $this->belongsTo(ProductAttribute::class, 'attribute_id');
+    }
+
+    /** المتغيّرات التي تحمل هذه القيمة. */
+    public function variants(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            ProductVariant::class,
+            'variant_attribute_values',
+            'attribute_value_id',
+            'variant_id'
+        )->withTimestamps();
     }
 
     protected static function newFactory(): Factory

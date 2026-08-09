@@ -129,6 +129,18 @@ class Product extends Model
         return $this->belongsToMany(ProductAttribute::class, 'product_attribute_links', 'product_id', 'attribute_id')->withTimestamps();
     }
 
+    /** منتج متعدّد الخيارات (مقاسات/ألوان)؟ يعتمد على النوع أو وجود متغيّرات تحمل قيم سمات. */
+    public function isVariable(): bool
+    {
+        if ($this->type === 'variable') {
+            return true;
+        }
+
+        return $this->relationLoaded('variants')
+            ? $this->variants->contains(fn ($v) => $v->relationLoaded('attributeValues') && $v->attributeValues->isNotEmpty())
+            : $this->variants()->has('attributeValues')->exists();
+    }
+
     public function scopeActive($query)
     {
         return $query->where('is_active', true);

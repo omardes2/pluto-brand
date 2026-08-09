@@ -8,14 +8,16 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * منطق أعمال المنتجات (خارج المتحكمات): توليد slug، اشتقاق is_active من status،
- * مزامنة الوسوم والسمات — كله داخل معاملة ذرّية (المبدأ 7).
+ * مزامنة الوسوم والسمات والمتغيّرات — كله داخل معاملة ذرّية (المبدأ 7).
  */
 class ProductService
 {
+    public function __construct(private readonly ProductVariantService $variants) {}
+
     public function create(array $data): Product
     {
         return DB::transaction(function () use ($data) {
-            [$tagIds, $attributeIds, $attributes] = $this->extractRelations($data);
+            [$tagIds, $attributeIds, $axes, $overrides, $attributes] = $this->extractRelations($data);
 
             $attributes['slug'] = $this->resolveSlug($attributes);
             $attributes['is_active'] = ($attributes['status'] ?? 'draft') === 'active';
@@ -23,9 +25,9 @@ class ProductService
 
             $product = Product::create($attributes);
             $product->tags()->sync($tagIds);
-            $product->attributes()->sync($attributeIds);
             $this->ensureDefaultVariant($product);
             $this->syncVariantPrices($product, $attributes);
+            $this->applyOptions($product, $attributeIds, $axes, $overrides);
 
             return $product;
         });
@@ -34,7 +36,7 @@ class ProductService
     public function update(Product $product, array $data): Product
     {
         return DB::transaction(function () use ($product, $data) {
-            [$tagIds, $attributeIds, $attributes] = $this->extractRelations($data);
+            [$tagIds, $attributeIds, $axes, $overrides, $attributes] = $this->extractRelations($data);
 
             if (isset($attributes['name']) || isset($attributes['slug'])) {
                 $attributes['slug'] = $this->resolveSlug($attributes, $product);
@@ -52,12 +54,41 @@ class ProductService
                 $product->tags()->sync($tagIds);
             }
 
-            if ($attributeIds !== null) {
-                $product->attributes()->sync($attributeIds);
-            }
+            $this->applyOptions($product, $attributeIds, $axes, $overrides);
 
             return $product;
         });
+    }
+
+    /**
+     * يطبّق الخيارات على المنتج: إن وُجدت محاور بقيم → يولّد مصفوفة المتغيّرات؛
+     * وإلا يزامن السمات المطبّقة (منتج بسيط) كما في السابق.
+     *
+     * @param  array<string, array<string, mixed>>  $overrides
+     */
+    private function applyOptions(Product $product, ?array $attributeIds, ?array $axes, array $overrides): void
+    {
+        if (is_array($axes) && $this->hasSelectedValues($axes)) {
+            $this->variants->syncMatrix($product, $axes, $overrides);
+
+            return;
+        }
+
+        if ($attributeIds !== null) {
+            $product->attributes()->sync($attributeIds);
+        }
+    }
+
+    /** هل تحوي المحاور قيمة واحدة على الأقل؟ */
+    private function hasSelectedValues(array $axes): bool
+    {
+        foreach ($axes as $values) {
+            if (array_filter((array) $values) !== []) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -117,16 +148,18 @@ class ProductService
     /**
      * يفصل مصفوفات العلاقات عن سمات النموذج.
      *
-     * @return array{0: ?array, 1: ?array, 2: array}
+     * @return array{0: ?array, 1: ?array, 2: ?array, 3: array, 4: array}
      */
     private function extractRelations(array $data): array
     {
         $tagIds = array_key_exists('tag_ids', $data) ? (array) $data['tag_ids'] : null;
         $attributeIds = array_key_exists('attribute_ids', $data) ? (array) $data['attribute_ids'] : null;
+        $axes = array_key_exists('axes', $data) ? (array) $data['axes'] : null;
+        $overrides = array_key_exists('variants', $data) ? (array) $data['variants'] : [];
 
-        unset($data['tag_ids'], $data['attribute_ids']);
+        unset($data['tag_ids'], $data['attribute_ids'], $data['axes'], $data['variants']);
 
-        return [$tagIds, $attributeIds, $data];
+        return [$tagIds, $attributeIds, $axes, $overrides, $data];
     }
 
     private function resolveSlug(array $data, ?Product $product = null): string

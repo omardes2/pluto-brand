@@ -15,6 +15,8 @@ use App\Modules\Catalog\Models\ProductTag;
 use App\Modules\Catalog\Models\Unit;
 use App\Modules\Catalog\Services\ProductImageService;
 use App\Modules\Catalog\Services\ProductService;
+use App\Modules\Foundation\Models\Warehouse;
+use App\Modules\Inventory\Models\InventoryStock;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -75,7 +77,9 @@ class ProductController extends Controller
     {
         $this->authorize('update', $product);
 
-        return view('admin.catalog.products.form', $this->formData($product->load(['tags', 'attributes', 'images'])));
+        return view('admin.catalog.products.form', $this->formData(
+            $product->load(['tags', 'attributes', 'images', 'variants.attributeValues'])
+        ));
     }
 
     public function update(UpdateProductRequest $request, Product $product): RedirectResponse
@@ -95,6 +99,8 @@ class ProductController extends Controller
         return array_merge($request->validated(), [
             'tag_ids' => $request->input('tag_ids', []),
             'attribute_ids' => $request->input('attribute_ids', []),
+            'axes' => $request->input('axes', []),
+            'variants' => $request->input('variants', []),
         ]);
     }
 
@@ -156,13 +162,54 @@ class ProductController extends Controller
 
     private function formData(Product $product): array
     {
+        // السمات القابلة للتنويع (لها قيم) مع قيمها المرتّبة — محاور الخيارات.
+        $attributes = ProductAttribute::with(['values' => fn ($q) => $q->orderBy('sort_order')->orderBy('id')])
+            ->orderBy('sort_order')->orderBy('name')->get();
+
         return [
             'product' => $product,
             'categories' => Category::orderBy('name')->get(),
             'brands' => Brand::orderBy('name')->get(),
             'units' => Unit::orderBy('name')->get(),
             'tags' => ProductTag::orderBy('name')->get(),
-            'attributes' => ProductAttribute::orderBy('name')->get(),
+            'attributes' => $attributes,
+            'existingVariants' => $this->existingVariantsPayload($product),
         ];
+    }
+
+    /**
+     * تمثيل المتغيّرات الحالية (ذات الخيارات) لتهيئة مصفوفة الإدارة: القيم والسعر والمخزون.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function existingVariantsPayload(Product $product): array
+    {
+        if (! $product->exists) {
+            return [];
+        }
+
+        $warehouse = $this->defaultWarehouse();
+        $stockByVariant = $warehouse
+            ? InventoryStock::where('warehouse_id', $warehouse->id)
+                ->whereIn('variant_id', $product->variants->pluck('id'))
+                ->pluck('on_hand', 'variant_id')
+            : collect();
+
+        return $product->variants
+            ->filter(fn ($v) => $v->attributeValues->isNotEmpty())
+            ->map(fn ($v) => [
+                'value_ids' => $v->attributeValues->pluck('id')->map(fn ($id) => (int) $id)->all(),
+                'sku' => $v->sku,
+                'retail_price' => $v->retail_price !== null ? (float) $v->retail_price : null,
+                'promo_price' => $v->promo_price !== null ? (float) $v->promo_price : null,
+                'quantity' => (float) ($stockByVariant[$v->id] ?? 0),
+                'is_active' => (bool) $v->is_active,
+            ])->values()->all();
+    }
+
+    /** المستودع الافتراضي (النظام أحادي المستودع حاليًا). */
+    private function defaultWarehouse(): ?Warehouse
+    {
+        return Warehouse::where('is_default', true)->first() ?? Warehouse::orderBy('id')->first();
     }
 }
