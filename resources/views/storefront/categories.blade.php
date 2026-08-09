@@ -9,11 +9,11 @@
         <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
             @foreach ($categories as $category)
                 <a href="{{ route('storefront.category', $category->slug) }}"
-                   class="flex items-center gap-3 p-4 rounded-xl bg-white border border-gray-200 hover:border-emerald-300 hover:shadow-sm">
+                   class="flex items-center gap-3 p-4 rounded-xl bg-white border border-gray-200 hover:border-gray-400 hover:shadow-sm">
                     @if ($category->iconUrl())
-                        <img src="{{ $category->iconUrl() }}" alt="{{ $category->name }}" class="h-11 w-11 shrink-0 rounded-full object-cover bg-emerald-50" />
+                        <img src="{{ $category->iconUrl() }}" alt="{{ $category->name }}" class="h-11 w-11 shrink-0 rounded-full object-cover bg-gray-100" />
                     @else
-                        <span class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 font-bold text-lg">
+                        <span class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-900 font-bold text-lg">
                             {{ mb_substr($category->name, 0, 1) }}
                         </span>
                     @endif

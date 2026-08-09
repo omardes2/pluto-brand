@@ -4,7 +4,7 @@
         @if ($unreadCount > 0)
             <form method="POST" action="{{ route('account.notifications.read_all') }}">
                 @csrf
-                <button type="submit" class="text-sm text-emerald-600 hover:underline">{{ __('account.mark_all_read') }}</button>
+                <button type="submit" class="text-sm text-gray-900 hover:underline">{{ __('account.mark_all_read') }}</button>
             </form>
         @endif
     </div>
@@ -16,7 +16,7 @@
     @else
         <div class="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
             @foreach ($notifications as $notification)
-                <div @class(['p-4 flex items-start justify-between gap-3', 'bg-emerald-50/40' => is_null($notification->read_at)])>
+                <div @class(['p-4 flex items-start justify-between gap-3', 'bg-gray-100/40' => is_null($notification->read_at)])>
                     <div class="min-w-0">
                         <p class="font-medium text-gray-800">{{ $notification->data['title'] ?? $notification->type }}</p>
                         @if (! empty($notification->data['body']))
@@ -27,7 +27,7 @@
                     @if (is_null($notification->read_at))
                         <form method="POST" action="{{ route('account.notifications.read', $notification->id) }}" class="shrink-0">
                             @csrf
-                            <button type="submit" class="text-xs text-emerald-600 hover:underline whitespace-nowrap">{{ __('account.mark_read') }}</button>
+                            <button type="submit" class="text-xs text-gray-900 hover:underline whitespace-nowrap">{{ __('account.mark_read') }}</button>
                         </form>
                     @endif
                 </div>

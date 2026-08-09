@@ -4,7 +4,7 @@
         <p class="text-sm text-gray-500 mb-6">{{ __('account.forgot_password_hint') }}</p>
 
         @if (session('status'))
-            <div class="mb-4 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm px-4 py-3">
+            <div class="mb-4 rounded-lg bg-gray-100 border border-gray-300 text-black text-sm px-4 py-3">
                 {{ session('status') }}
             </div>
         @endif
@@ -17,15 +17,15 @@
             <div>
                 <label for="email" class="block text-sm font-medium text-gray-700 mb-1">{{ __('account.email') }}</label>
                 <input id="email" name="email" type="email" value="{{ old('email') }}" required autofocus
-                       class="w-full rounded-lg border-gray-300 focus:border-emerald-500 focus:ring-emerald-500">
+                       class="w-full rounded-lg border-gray-300 focus:border-gray-900 focus:ring-gray-900">
             </div>
-            <button type="submit" class="w-full rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5">
+            <button type="submit" class="w-full rounded-lg bg-gray-900 hover:bg-black text-white font-semibold py-2.5">
                 {{ __('account.send_reset_link') }}
             </button>
         </form>
 
         <p class="text-sm text-gray-500 mt-5 text-center">
-            <a href="{{ route('account.login') }}" class="text-emerald-600 hover:underline">{{ __('account.sign_in') }}</a>
+            <a href="{{ route('account.login') }}" class="text-gray-900 hover:underline">{{ __('account.sign_in') }}</a>
         </p>
     </div>
 </x-storefront.layout>

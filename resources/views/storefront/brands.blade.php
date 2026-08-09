@@ -9,7 +9,7 @@
         <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
             @foreach ($brands as $brand)
                 <a href="{{ route('storefront.brand', $brand->slug) }}"
-                   class="flex flex-col items-center justify-center gap-2 p-5 rounded-xl bg-white border border-gray-200 hover:border-emerald-300 hover:shadow-sm text-center">
+                   class="flex flex-col items-center justify-center gap-2 p-5 rounded-xl bg-white border border-gray-200 hover:border-gray-400 hover:shadow-sm text-center">
                     <span class="inline-flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 text-gray-600 font-bold text-lg">
                         {{ mb_substr($brand->name, 0, 1) }}
                     </span>

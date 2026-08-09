@@ -24,10 +24,10 @@
 
     {{-- مسار التنقّل --}}
     <nav class="text-xs text-gray-500 mb-4 flex items-center gap-1.5 flex-wrap" aria-label="breadcrumb">
-        <a href="{{ route('storefront.home') }}" class="hover:text-emerald-600">{{ __('storefront.home') }}</a>
+        <a href="{{ route('storefront.home') }}" class="hover:text-gray-900">{{ __('storefront.home') }}</a>
         <span>/</span>
         @if ($product->category)
-            <a href="{{ route('storefront.category', $product->category->slug) }}" class="hover:text-emerald-600">{{ $product->category->name }}</a>
+            <a href="{{ route('storefront.category', $product->category->slug) }}" class="hover:text-gray-900">{{ $product->category->name }}</a>
             <span>/</span>
         @endif
         <span class="text-gray-700">{{ $displayName }}</span>
@@ -47,8 +47,8 @@
                 <div class="mt-3 grid grid-cols-5 gap-2">
                     @foreach ($images as $image)
                         <button type="button" @click="main = '{{ $image->url() }}'"
-                                class="aspect-square rounded-lg overflow-hidden border-2 border-transparent focus:border-emerald-500"
-                                :class="main === '{{ $image->url() }}' ? 'border-emerald-500' : 'border-gray-200'">
+                                class="aspect-square rounded-lg overflow-hidden border-2 border-transparent focus:border-gray-900"
+                                :class="main === '{{ $image->url() }}' ? 'border-gray-900' : 'border-gray-200'">
                             <img src="{{ $image->url() }}" alt="{{ $image->alt ?: $displayName }}" loading="lazy" class="w-full h-full object-cover">
                         </button>
                     @endforeach
@@ -59,7 +59,7 @@
         {{-- التفاصيل --}}
         <div>
             @if ($product->brand)
-                <a href="{{ route('storefront.brand', $product->brand->slug) }}" class="text-sm text-emerald-600 hover:underline">{{ $product->brand->name }}</a>
+                <a href="{{ route('storefront.brand', $product->brand->slug) }}" class="text-sm text-gray-900 hover:underline">{{ $product->brand->name }}</a>
             @endif
             <h1 class="text-2xl font-bold text-gray-900 mt-1">{{ $displayName }}</h1>
 
@@ -69,10 +69,10 @@
 
             {{-- السعر --}}
             <div class="mt-4 flex items-center gap-3">
-                <span class="text-3xl font-bold text-emerald-700">{{ number_format($price, 2) }} {{ __('storefront.currency') }}</span>
+                <span class="text-3xl font-bold text-black">{{ number_format($price, 2) }} {{ __('storefront.currency') }}</span>
                 @if ($onSale)
                     <span class="text-lg text-gray-400 line-through">{{ number_format($regular, 2) }} {{ __('storefront.currency') }}</span>
-                    <span class="bg-rose-100 text-rose-700 text-xs font-bold px-2 py-1 rounded">
+                    <span class="bg-gray-900 text-white text-xs font-bold px-2 py-1 rounded">
                         {{ (int) round((1 - $price / max($regular, 0.01)) * 100) }}% {{ __('storefront.off') }}
                     </span>
                 @endif
@@ -81,8 +81,8 @@
             {{-- التوفّر --}}
             <div class="mt-3">
                 @if ($inStock)
-                    <span class="inline-flex items-center gap-1.5 text-sm text-emerald-700">
-                        <span class="h-2 w-2 rounded-full bg-emerald-500"></span>{{ __('storefront.in_stock') }}
+                    <span class="inline-flex items-center gap-1.5 text-sm text-black">
+                        <span class="h-2 w-2 rounded-full bg-gray-900"></span>{{ __('storefront.in_stock') }}
                     </span>
                 @else
                     <span class="inline-flex items-center gap-1.5 text-sm text-gray-500">
@@ -105,7 +105,7 @@
                     </div>
                     <button type="button"
                             @click="await $store.cart.add('{{ $variant->uuid }}', qty); done = true; setTimeout(() => done = false, 1500)"
-                            class="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-6 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1">
+                            class="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-gray-900 hover:bg-black text-white font-semibold px-6 py-3 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-1">
                         <span x-show="!done">{{ __('storefront.add_to_cart') }}</span>
                         <span x-show="done" x-cloak>✓ {{ __('storefront.added') }}</span>
                     </button>
@@ -146,7 +146,7 @@
             <div class="mt-4" x-data="{ shared: false }">
                 <button type="button"
                         @click="navigator.share ? navigator.share({ title: '{{ $displayName }}', url: window.location.href }) : (navigator.clipboard.writeText(window.location.href), shared = true, setTimeout(() => shared = false, 1500))"
-                        class="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-emerald-600">
+                        class="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900">
                     <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M7.2 10.5a2.4 2.4 0 1 1-4.8 0 2.4 2.4 0 0 1 4.8 0Zm14.4-6a2.4 2.4 0 1 1-4.8 0 2.4 2.4 0 0 1 4.8 0Zm0 12a2.4 2.4 0 1 1-4.8 0 2.4 2.4 0 0 1 4.8 0ZM7.2 10.5l9.6-4.5m-9.6 6 9.6 4.5"/></svg>
                     <span x-show="!shared">{{ __('storefront.share') }}</span>
                     <span x-show="shared" x-cloak>✓</span>

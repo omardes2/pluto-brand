@@ -15,7 +15,7 @@
                     </span>
                     <div>
                         <p class="font-medium text-gray-800 capitalize">{{ $provider }}</p>
-                        <p class="text-xs {{ $isLinked ? 'text-emerald-600' : 'text-gray-400' }}">
+                        <p class="text-xs {{ $isLinked ? 'text-gray-900' : 'text-gray-400' }}">
                             {{ $isLinked ? __('account.connected') : __('account.not_connected') }}
                         </p>
                     </div>
@@ -27,7 +27,7 @@
                         <button type="submit" class="text-sm text-rose-600 hover:underline">{{ __('account.unlink') }}</button>
                     </form>
                 @else
-                    <a href="{{ route('account.providers.link', $provider) }}" class="text-sm text-emerald-600 hover:underline">{{ __('account.link') }}</a>
+                    <a href="{{ route('account.providers.link', $provider) }}" class="text-sm text-gray-900 hover:underline">{{ __('account.link') }}</a>
                 @endif
             </div>
         @endforeach

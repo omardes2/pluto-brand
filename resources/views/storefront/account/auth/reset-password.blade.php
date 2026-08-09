@@ -12,19 +12,19 @@
             <div>
                 <label for="email" class="block text-sm font-medium text-gray-700 mb-1">{{ __('account.email') }}</label>
                 <input id="email" name="email" type="email" value="{{ old('email', $email) }}" required autocomplete="email"
-                       class="w-full rounded-lg border-gray-300 focus:border-emerald-500 focus:ring-emerald-500">
+                       class="w-full rounded-lg border-gray-300 focus:border-gray-900 focus:ring-gray-900">
             </div>
             <div>
                 <label for="password" class="block text-sm font-medium text-gray-700 mb-1">{{ __('account.new_password') }}</label>
                 <input id="password" name="password" type="password" required autocomplete="new-password"
-                       class="w-full rounded-lg border-gray-300 focus:border-emerald-500 focus:ring-emerald-500">
+                       class="w-full rounded-lg border-gray-300 focus:border-gray-900 focus:ring-gray-900">
             </div>
             <div>
                 <label for="password_confirmation" class="block text-sm font-medium text-gray-700 mb-1">{{ __('account.password_confirmation') }}</label>
                 <input id="password_confirmation" name="password_confirmation" type="password" required autocomplete="new-password"
-                       class="w-full rounded-lg border-gray-300 focus:border-emerald-500 focus:ring-emerald-500">
+                       class="w-full rounded-lg border-gray-300 focus:border-gray-900 focus:ring-gray-900">
             </div>
-            <button type="submit" class="w-full rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5">
+            <button type="submit" class="w-full rounded-lg bg-gray-900 hover:bg-black text-white font-semibold py-2.5">
                 {{ __('account.reset_password') }}
             </button>
         </form>

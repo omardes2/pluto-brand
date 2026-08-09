@@ -4,7 +4,7 @@
     <div class="space-y-2">
         @if (in_array('google', $providers, true))
             <a href="{{ route('social.redirect', 'google') }}"
-               class="flex items-center justify-center gap-3 w-full rounded-lg border border-[#dadce0] bg-white text-[#3c4043] font-medium py-2.5 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+               class="flex items-center justify-center gap-3 w-full rounded-lg border border-[#dadce0] bg-white text-[#3c4043] font-medium py-2.5 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-900"
                aria-label="{{ __('account.continue_with', ['provider' => 'Google']) }}">
                 <svg class="h-5 w-5" viewBox="0 0 48 48" aria-hidden="true">
                     <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
