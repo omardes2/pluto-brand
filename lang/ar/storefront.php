@@ -47,6 +47,7 @@ return [
     'sale' => 'عرض',
     'off' => 'خصم',
     'sku' => 'رمز المنتج',
+    'barcode' => 'الباركود',
     'availability' => 'التوفّر',
     'description' => 'الوصف',
     'attributes' => 'المواصفات',

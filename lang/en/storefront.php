@@ -47,6 +47,7 @@ return [
     'sale' => 'Sale',
     'off' => 'off',
     'sku' => 'SKU',
+    'barcode' => 'Barcode',
     'availability' => 'Availability',
     'description' => 'Description',
     'attributes' => 'Specifications',

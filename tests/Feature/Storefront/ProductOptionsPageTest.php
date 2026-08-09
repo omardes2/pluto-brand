@@ -26,7 +26,7 @@ class ProductOptionsPageTest extends TestCase
     /** @return array{0: Product, 1: ProductAttributeValue, 2: ProductAttributeValue} */
     private function variableProduct(float $mStock = 0): array
     {
-        $product = Product::factory()->active()->create(['retail_price' => 100, 'visibility' => 'visible', 'name' => 'قميص']);
+        $product = Product::factory()->active()->create(['retail_price' => 100, 'visibility' => 'visible', 'name' => 'قميص', 'barcode' => 'BC-VAR-1']);
         $attr = ProductAttribute::factory()->create(['name' => 'المقاس', 'type' => 'select']);
         $s = ProductAttributeValue::factory()->create(['attribute_id' => $attr->id, 'value' => 'S', 'label' => 'S', 'sort_order' => 0]);
         $m = ProductAttributeValue::factory()->create(['attribute_id' => $attr->id, 'value' => 'M', 'label' => 'M', 'sort_order' => 1]);
@@ -47,6 +47,8 @@ class ProductOptionsPageTest extends TestCase
         $res->assertSee('المقاس');                        // اسم المحور
         $res->assertSee('x-data="productPage(', false);   // تهيئة المحدّد
         $res->assertSee('S، M');                          // قيم حقيقية في المواصفات بدل خطأ «—»
+        $res->assertSee('الباركود');                      // الباركود بدل رمز المنتج
+        $res->assertSee('BC-VAR-1');                      // قيمة الباركود في تهيئة المحدّد
 
         // خريطة المتغيّرات تحمل معرّفات الشراء لكل تركيبة.
         $sUuid = $product->variants()->where('name', 'S')->value('uuid');
@@ -70,7 +72,7 @@ class ProductOptionsPageTest extends TestCase
 
     public function test_simple_product_page_unchanged(): void
     {
-        $product = Product::factory()->active()->create(['retail_price' => 50, 'visibility' => 'visible', 'name' => 'كوب']);
+        $product = Product::factory()->active()->create(['retail_price' => 50, 'visibility' => 'visible', 'name' => 'كوب', 'barcode' => 'BC-SIMPLE-1']);
         $variant = $product->defaultVariant;
         $variant->update(['retail_price' => 50]);
         $warehouse = Warehouse::where('is_default', true)->first() ?? Warehouse::orderBy('id')->first();
@@ -79,5 +81,7 @@ class ProductOptionsPageTest extends TestCase
         $res = $this->get("/p/{$product->slug}")->assertOk();
         $res->assertDontSee('x-data="productPage(', false);        // لا محدّد للبسيط
         $res->assertSee($variant->uuid);                           // زر الإضافة بالمتغيّر الافتراضي
+        $res->assertSee('الباركود');                               // الباركود بدل رمز المنتج
+        $res->assertSee('BC-SIMPLE-1');                            // قيمة باركود المنتج
     }
 }
