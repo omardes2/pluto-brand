@@ -14,16 +14,16 @@
             <div>
                 <label for="phone" class="block text-sm font-medium text-gray-700 mb-1">{{ __('account.phone') }}</label>
                 <input id="phone" name="phone" value="{{ old('phone', $customer->primary_phone) }}" required inputmode="tel"
-                       class="w-full rounded-lg border-gray-300 focus:border-emerald-500 focus:ring-emerald-500">
+                       class="w-full rounded-lg border-gray-300 focus:border-gray-900 focus:ring-gray-900">
             </div>
             <div>
                 <label for="birth_date" class="block text-sm font-medium text-gray-700 mb-1">{{ __('account.birth_date') }}</label>
                 <input id="birth_date" name="birth_date" type="date" value="{{ old('birth_date', optional($customer->birth_date)->format('Y-m-d')) }}" required
-                       class="w-full rounded-lg border-gray-300 focus:border-emerald-500 focus:ring-emerald-500">
+                       class="w-full rounded-lg border-gray-300 focus:border-gray-900 focus:ring-gray-900">
             </div>
             <div>
                 <label for="preferred_locale" class="block text-sm font-medium text-gray-700 mb-1">{{ __('account.preferred_language') }}</label>
-                <select id="preferred_locale" name="preferred_locale" required class="w-full rounded-lg border-gray-300 focus:border-emerald-500 focus:ring-emerald-500">
+                <select id="preferred_locale" name="preferred_locale" required class="w-full rounded-lg border-gray-300 focus:border-gray-900 focus:ring-gray-900">
                     @foreach ($locales as $loc)
                         <option value="{{ $loc }}" @selected(old('preferred_locale', $customer->preferred_locale ?? app()->getLocale()) === $loc)>{{ strtoupper($loc) }}</option>
                     @endforeach
@@ -35,13 +35,13 @@
                     @foreach (['whatsapp', 'email', 'sms', 'push'] as $channel)
                         <label class="flex items-center gap-2 text-sm text-gray-700 p-2 rounded-lg border border-gray-200">
                             <input type="checkbox" name="communication_preferences[{{ $channel }}]" value="1"
-                                   class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500">
+                                   class="rounded border-gray-300 text-gray-900 focus:ring-gray-900">
                             {{ __('account.channel_'.$channel) }}
                         </label>
                     @endforeach
                 </div>
             </div>
-            <button type="submit" class="w-full rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5">
+            <button type="submit" class="w-full rounded-lg bg-gray-900 hover:bg-black text-white font-semibold py-2.5">
                 {{ __('account.save') }}
             </button>
         </form>

@@ -27,7 +27,7 @@
                         <a href="{{ route($item['route']) }}"
                            @class([
                                'block px-3 py-2 rounded-lg text-sm',
-                               'bg-emerald-50 text-emerald-700 font-medium' => $active === $key,
+                               'bg-gray-100 text-black font-medium' => $active === $key,
                                'text-gray-700 hover:bg-gray-50' => $active !== $key,
                            ])>{{ $item['label'] }}</a>
                     @endforeach
@@ -44,7 +44,7 @@
         {{-- المحتوى --}}
         <div class="lg:col-span-3">
             @if (session('status'))
-                <div class="mb-4 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm px-4 py-3">
+                <div class="mb-4 rounded-lg bg-gray-100 border border-gray-300 text-black text-sm px-4 py-3">
                     {{ session('status') }}
                 </div>
             @endif

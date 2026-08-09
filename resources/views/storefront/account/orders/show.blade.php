@@ -1,13 +1,13 @@
 <x-storefront.account-layout :title="$order->number" active="orders">
     <div class="flex items-center justify-between gap-3 mb-4">
         <div>
-            <a href="{{ route('account.orders') }}" class="text-sm text-gray-500 hover:text-emerald-600">← {{ __('account.my_orders') }}</a>
+            <a href="{{ route('account.orders') }}" class="text-sm text-gray-500 hover:text-gray-900">← {{ __('account.my_orders') }}</a>
             <h1 class="text-xl font-bold text-gray-900 mt-1">{{ $order->number }}</h1>
             <p class="text-xs text-gray-400">{{ $order->created_at?->format('Y-m-d H:i') }}</p>
         </div>
         <form method="POST" action="{{ route('account.orders.reorder', $order) }}">
             @csrf
-            <button type="submit" class="rounded-lg border border-emerald-600 text-emerald-700 hover:bg-emerald-50 text-sm font-medium px-4 py-2">
+            <button type="submit" class="rounded-lg border border-gray-900 text-black hover:bg-gray-100 text-sm font-medium px-4 py-2">
                 {{ __('account.reorder') }}
             </button>
         </form>
@@ -20,7 +20,7 @@
             <div>
                 <p class="text-xs text-gray-400 mb-1">{{ __('account.order_status') }}</p>
                 <span x-show="loaded" x-cloak class="inline-flex items-center gap-1.5">
-                    <span class="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span class="h-2 w-2 rounded-full bg-gray-900 animate-pulse"></span>
                     <span class="text-xs text-gray-400">{{ __('account.live') }}</span>
                 </span>
                 <div class="mt-1"><x-sales.status :status="$order->status" /></div>
@@ -52,7 +52,7 @@
             </div>
             <div class="border-t border-gray-200 mt-3 pt-3 flex items-center justify-between">
                 <span class="font-bold text-gray-900">{{ __('account.order_total') }}</span>
-                <span class="font-bold text-emerald-700">{{ number_format((float) $order->total, 2) }} {{ __('storefront.currency') }}</span>
+                <span class="font-bold text-black">{{ number_format((float) $order->total, 2) }} {{ __('storefront.currency') }}</span>
             </div>
         </div>
 
@@ -62,7 +62,7 @@
             <ol class="relative border-s border-gray-200 ms-2 space-y-4">
                 @foreach ($order->statusHistory->sortByDesc('id') as $history)
                     <li class="ms-4">
-                        <span class="absolute -start-1.5 h-3 w-3 rounded-full bg-emerald-500 mt-1.5"></span>
+                        <span class="absolute -start-1.5 h-3 w-3 rounded-full bg-gray-900 mt-1.5"></span>
                         <div><x-sales.status :status="$history->to_status" /></div>
                         <p class="text-xs text-gray-400 mt-1">{{ $history->created_at?->format('Y-m-d H:i') }}</p>
                         @if ($history->note)

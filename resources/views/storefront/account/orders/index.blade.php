@@ -5,7 +5,7 @@
         <div class="bg-white rounded-xl border border-dashed border-gray-300 p-10 text-center">
             <p class="text-gray-700 font-medium">{{ __('account.no_orders') }}</p>
             <p class="text-sm text-gray-500 mt-1">{{ __('account.no_orders_hint') }}</p>
-            <a href="{{ route('storefront.shop') }}" class="inline-block mt-4 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-5 py-2.5">{{ __('storefront.shop') }}</a>
+            <a href="{{ route('storefront.shop') }}" class="inline-block mt-4 rounded-lg bg-gray-900 hover:bg-black text-white text-sm font-medium px-5 py-2.5">{{ __('storefront.shop') }}</a>
         </div>
     @else
         <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
@@ -28,7 +28,7 @@
                                 <td class="px-4 py-3"><x-sales.status :status="$order->status" /></td>
                                 <td class="px-4 py-3 text-end font-semibold text-gray-800">{{ number_format((float) $order->total, 2) }} {{ __('storefront.currency') }}</td>
                                 <td class="px-4 py-3 text-end">
-                                    <a href="{{ route('account.orders.show', $order) }}" class="text-emerald-600 hover:underline whitespace-nowrap">{{ __('account.track_order') }}</a>
+                                    <a href="{{ route('account.orders.show', $order) }}" class="text-gray-900 hover:underline whitespace-nowrap">{{ __('account.track_order') }}</a>
                                 </td>
                             </tr>
                         @endforeach

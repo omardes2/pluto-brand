@@ -3,19 +3,19 @@
 
     {{-- بطاقات ملخّص --}}
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-        <a href="{{ route('account.orders') }}" class="bg-white rounded-xl border border-gray-200 p-4 hover:border-emerald-300">
+        <a href="{{ route('account.orders') }}" class="bg-white rounded-xl border border-gray-200 p-4 hover:border-gray-400">
             <p class="text-2xl font-bold text-gray-900">{{ $recentOrders->count() ? $customer->orders()->count() : 0 }}</p>
             <p class="text-xs text-gray-500 mt-1">{{ __('account.total_orders') }}</p>
         </a>
-        <a href="{{ route('account.wishlist') }}" class="bg-white rounded-xl border border-gray-200 p-4 hover:border-emerald-300">
+        <a href="{{ route('account.wishlist') }}" class="bg-white rounded-xl border border-gray-200 p-4 hover:border-gray-400">
             <p class="text-2xl font-bold text-gray-900">{{ $wishlistCount }}</p>
             <p class="text-xs text-gray-500 mt-1">{{ __('account.wishlist_items') }}</p>
         </a>
-        <a href="{{ route('account.addresses') }}" class="bg-white rounded-xl border border-gray-200 p-4 hover:border-emerald-300">
+        <a href="{{ route('account.addresses') }}" class="bg-white rounded-xl border border-gray-200 p-4 hover:border-gray-400">
             <p class="text-2xl font-bold text-gray-900">{{ $addressCount }}</p>
             <p class="text-xs text-gray-500 mt-1">{{ __('account.saved_addresses') }}</p>
         </a>
-        <a href="{{ route('account.notifications') }}" class="bg-white rounded-xl border border-gray-200 p-4 hover:border-emerald-300">
+        <a href="{{ route('account.notifications') }}" class="bg-white rounded-xl border border-gray-200 p-4 hover:border-gray-400">
             <p class="text-2xl font-bold text-gray-900">{{ $unreadCount }}</p>
             <p class="text-xs text-gray-500 mt-1">{{ __('account.unread_notifications') }}</p>
         </a>
@@ -25,7 +25,7 @@
     <div class="bg-white rounded-xl border border-gray-200 p-5">
         <div class="flex items-center justify-between mb-4">
             <h2 class="font-bold text-gray-900">{{ __('account.recent_orders') }}</h2>
-            <a href="{{ route('account.orders') }}" class="text-sm text-emerald-600 hover:underline">{{ __('account.view_all') }}</a>
+            <a href="{{ route('account.orders') }}" class="text-sm text-gray-900 hover:underline">{{ __('account.view_all') }}</a>
         </div>
         @if ($recentOrders->isEmpty())
             <p class="text-sm text-gray-500 text-center py-6">{{ __('account.no_orders') }}</p>

@@ -5,7 +5,7 @@
         <div class="bg-white rounded-xl border border-dashed border-gray-300 p-10 text-center">
             <p class="text-gray-700 font-medium">{{ __('account.no_wishlist') }}</p>
             <p class="text-sm text-gray-500 mt-1">{{ __('account.no_wishlist_hint') }}</p>
-            <a href="{{ route('storefront.shop') }}" class="inline-block mt-4 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-5 py-2.5">{{ __('storefront.shop') }}</a>
+            <a href="{{ route('storefront.shop') }}" class="inline-block mt-4 rounded-lg bg-gray-900 hover:bg-black text-white text-sm font-medium px-5 py-2.5">{{ __('storefront.shop') }}</a>
         </div>
     @else
         <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">

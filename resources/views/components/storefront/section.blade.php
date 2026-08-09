@@ -19,7 +19,7 @@
         <div class="flex items-center justify-between mb-4">
             <h2 class="text-lg font-bold text-gray-900">{{ $title }}</h2>
             @if ($viewAll)
-                <a href="{{ $viewAll }}" class="text-sm text-emerald-600 hover:underline">{{ __('storefront.view_all') }}</a>
+                <a href="{{ $viewAll }}" class="text-sm text-gray-900 hover:underline">{{ __('storefront.view_all') }}</a>
             @endif
         </div>
 

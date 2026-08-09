@@ -26,7 +26,7 @@
 
         {{-- شارة العرض (من سعر الكتالوج — حقيقة كتالوجية، لا محرّك نمو) --}}
         @if ($discount > 0)
-            <span class="absolute top-2 start-2 bg-rose-600 text-white text-xs font-bold px-2 py-0.5 rounded">
+            <span class="absolute top-2 start-2 bg-gray-900 text-white text-xs font-bold px-2 py-0.5 rounded">
                 {{ $discount }}% {{ __('storefront.off') }}
             </span>
         @endif
@@ -44,13 +44,13 @@
             <span class="text-xs text-gray-400">{{ $product->brand->name }}</span>
         @endif
         <a href="{{ route('storefront.product', $product->slug) }}"
-           class="text-sm font-medium text-gray-800 hover:text-emerald-600 line-clamp-2 min-h-10">
+           class="text-sm font-medium text-gray-800 hover:text-gray-900 line-clamp-2 min-h-10">
             <x-storefront.name :product="$product" />
         </a>
 
         <div class="mt-auto flex items-end justify-between gap-2">
             <div class="flex flex-col">
-                <span class="text-emerald-700 font-bold">{{ number_format($price, 2) }} {{ __('storefront.currency') }}</span>
+                <span class="text-black font-bold">{{ number_format($price, 2) }} {{ __('storefront.currency') }}</span>
                 @if ($onSale)
                     <span class="text-xs text-gray-400 line-through">{{ number_format($regular, 2) }} {{ __('storefront.currency') }}</span>
                 @endif
@@ -60,7 +60,7 @@
                 <button type="button"
                         x-data="{ done: false }"
                         @click="await $store.cart.add('{{ $variant->uuid }}', 1); done = true; setTimeout(() => done = false, 1500)"
-                        class="shrink-0 inline-flex items-center gap-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1"
+                        class="shrink-0 inline-flex items-center gap-1 rounded-lg bg-gray-900 hover:bg-black text-white text-xs font-medium px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-1"
                         :aria-label="'{{ __('storefront.add_to_cart') }}'">
                     <span x-show="!done">{{ __('storefront.add_to_cart') }}</span>
                     <span x-show="done" x-cloak>✓ {{ __('storefront.added') }}</span>
