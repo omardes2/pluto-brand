@@ -2,6 +2,10 @@
 
 namespace Tests\Feature\Shipping;
 
+use App\Modules\Catalog\Models\Product;
+use App\Modules\Catalog\Models\ProductAttribute;
+use App\Modules\Catalog\Models\ProductAttributeValue;
+use App\Modules\Catalog\Services\ProductVariantService;
 use App\Modules\Foundation\Models\City;
 use App\Modules\Sales\Models\Order;
 use App\Modules\Shipping\Models\Shipment;
@@ -37,6 +41,7 @@ class GuaranteedDispatchTest extends TestCase
     protected function tearDown(): void
     {
         FakeTrackingDeliveryProvider::$createResult = null;
+        FakeTrackingDeliveryProvider::$lastPayload = null;
         parent::tearDown();
     }
 
@@ -48,6 +53,26 @@ class GuaranteedDispatchTest extends TestCase
             'confirmed_at' => now()->subMinutes(10),
             'tracking_number' => null,
         ], $attrs));
+    }
+
+    public function test_shipment_description_includes_variant_option(): void
+    {
+        $product = Product::factory()->create(['name' => 'قميص']);
+        $attr = ProductAttribute::factory()->create(['name' => 'المقاس', 'type' => 'select']);
+        $l = ProductAttributeValue::factory()->create(['attribute_id' => $attr->id, 'value' => 'L', 'label' => 'L']);
+        app(ProductVariantService::class)
+            ->syncMatrix($product, [$attr->id => [$l->id]], [['value_ids' => [$l->id], 'retail_price' => 100, 'quantity' => 5]]);
+        $variant = $product->variants()->where('name', 'L')->first();
+
+        $order = $this->deliveryOrder();
+        $order->items()->create([
+            'variant_id' => $variant->id, 'qty' => 1, 'unit_price' => 100,
+            'discount' => 0, 'tax_rate' => 0, 'tax_amount' => 0, 'line_total' => 100,
+        ]);
+
+        app(OrderDeliveryDispatcher::class)->dispatch($order);
+
+        $this->assertStringContainsString('قميص — L', FakeTrackingDeliveryProvider::$lastPayload['items_description']);
     }
 
     public function test_dispatch_sets_tracking_and_creates_shipment(): void
