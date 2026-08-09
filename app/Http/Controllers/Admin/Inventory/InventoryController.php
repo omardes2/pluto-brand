@@ -82,10 +82,19 @@ class InventoryController extends Controller
         $this->authorize('update', $product);
 
         $variant = $product->defaultVariant()->first();
+        $warehouse = $this->defaultWarehouse();
 
-        // المتغيّرات الحقيقية (مقاس/لون) — إن وُجد أكثر من واحد فالكمية موزّعة عليها،
-        // وتُدار من كرت الصنف فقط. الكمية المعروضة دائمًا هي الإجمالي عبر كل المتغيّرات.
-        $hasVariants = $product->variants()->count() > 1;
+        // المتغيّرات النشطة (مقاس/لون) — تُعرض كميّاتها للتعديل المباشر عند وجود أكثر من واحد.
+        $variants = $product->variants()->where('is_active', true)
+            ->with('attributeValues.attribute')->get();
+        $hasVariants = $variants->count() > 1;
+
+        // الكمية المتوفّرة لكل متغيّر على المستودع الافتراضي (لعرضها في جدول الكميات).
+        $stockByVariant = $warehouse
+            ? InventoryStock::whereIn('variant_id', $variants->pluck('id'))
+                ->where('warehouse_id', $warehouse->id)->pluck('on_hand', 'variant_id')
+            : collect();
+
         $quantity = (float) $product->stocks()->sum('on_hand');
 
         return view('admin.inventory.product-edit', [
@@ -94,6 +103,8 @@ class InventoryController extends Controller
             'variant' => $variant,
             'quantity' => $quantity,
             'hasVariants' => $hasVariants,
+            'variants' => $variants,
+            'stockByVariant' => $stockByVariant,
         ]);
     }
 
@@ -110,6 +121,8 @@ class InventoryController extends Controller
             'retail_price' => ['nullable', 'numeric', 'min:0'],
             'wholesale_price' => ['nullable', 'numeric', 'min:0'],
             'quantity' => ['nullable', 'numeric', 'min:0'],
+            'variant_qty' => ['nullable', 'array'],
+            'variant_qty.*' => ['nullable', 'numeric', 'min:0'],
             'barcode' => ['nullable', 'string', 'max:64',
                 $variant ? 'unique:product_variants,barcode,'.$variant->id : 'unique:product_variants,barcode'],
         ]);
@@ -125,23 +138,18 @@ class InventoryController extends Controller
 
         if ($variant) {
             $variant->update(['barcode' => $data['barcode'] ?? null]);
+        }
 
-            // الكمية تُدار من هنا فقط للأصناف البسيطة (متغيّر واحد). أمّا أصناف المقاسات/الألوان
-            // فكميّاتها موزّعة على المتغيّرات وتُعدَّل من كرت الصنف — نتجاهل حقل الكمية هنا كي لا
-            // نُفسد التوزيع بضبط المتغيّر الافتراضي وحده.
-            $hasVariants = $product->variants()->count() > 1;
+        $warehouse = $this->defaultWarehouse();
+        $hasVariants = $product->variants()->count() > 1;
 
-            // ضبط الكمية المتوفرة عبر تسوية مخزنية على المستودع الافتراضي (تظهر في سجل المخزن).
-            if (! $hasVariants && ($data['quantity'] ?? null) !== null && ($warehouse = $this->defaultWarehouse())) {
-                $current = (float) InventoryStock::where('variant_id', $variant->id)
-                    ->where('warehouse_id', $warehouse->id)->value('on_hand');
-                $delta = round((float) $data['quantity'] - $current, 2);
-                if (abs($delta) >= 0.001) {
-                    $opts = ['reason' => 'inventory_edit:'.$product->sku];
-                    $delta > 0
-                        ? $this->inventory->adjustIn($variant, $warehouse, $delta, $data['cost_price'] ?? null, $opts)
-                        : $this->inventory->adjustOut($variant, $warehouse, -$delta, $opts);
-                }
+        if ($warehouse) {
+            if ($hasVariants) {
+                // أصناف المقاسات/الألوان: تُضبط كمية كل متغيّر على حدة من جدول الكميات.
+                $this->syncVariantQuantities($product, $warehouse, (array) ($data['variant_qty'] ?? []), $data['cost_price'] ?? null);
+            } elseif ($variant && ($data['quantity'] ?? null) !== null) {
+                // صنف بسيط (متغيّر واحد): حقل كمية واحد.
+                $this->adjustVariantTo($variant, $warehouse, (float) $data['quantity'], $product->sku, $data['cost_price'] ?? null);
             }
         }
 
@@ -152,6 +160,47 @@ class InventoryController extends Controller
     private function defaultWarehouse(): ?Warehouse
     {
         return Warehouse::where('is_default', true)->first() ?? Warehouse::orderBy('id')->first();
+    }
+
+    /**
+     * ضبط كميّات متغيّرات المنتج (مقاس/لون) على المستودع الافتراضي عبر تسويات مخزنية.
+     * تُقبَل فقط المتغيّرات النشطة التابعة لهذا المنتج (حماية من العبث بالمعرّفات).
+     *
+     * @param  array<int|string, mixed>  $quantities  variant_id => الكمية الجديدة
+     */
+    private function syncVariantQuantities(Product $product, Warehouse $warehouse, array $quantities, ?float $cost): void
+    {
+        if ($quantities === []) {
+            return;
+        }
+
+        $allowed = $product->variants()->where('is_active', true)->pluck('id')->all();
+
+        foreach ($quantities as $variantId => $qty) {
+            if ($qty === null || $qty === '' || ! in_array((int) $variantId, $allowed, true)) {
+                continue;
+            }
+            $variant = ProductVariant::find((int) $variantId);
+            if ($variant) {
+                $this->adjustVariantTo($variant, $warehouse, (float) $qty, $product->sku, $cost);
+            }
+        }
+    }
+
+    /** يضبط رصيد متغيّر إلى كمية مستهدفة عبر تسوية دخول/خروج (تظهر في سجل المخزن). */
+    private function adjustVariantTo(ProductVariant $variant, Warehouse $warehouse, float $target, ?string $sku, ?float $cost): void
+    {
+        $current = (float) InventoryStock::where('variant_id', $variant->id)
+            ->where('warehouse_id', $warehouse->id)->value('on_hand');
+        $delta = round($target - $current, 2);
+        if (abs($delta) < 0.001) {
+            return;
+        }
+
+        $opts = ['reason' => 'inventory_edit:'.$sku];
+        $delta > 0
+            ? $this->inventory->adjustIn($variant, $warehouse, $delta, $cost, $opts)
+            : $this->inventory->adjustOut($variant, $warehouse, -$delta, $opts);
     }
 
     public function movements(Request $request): View
