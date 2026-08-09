@@ -7,6 +7,7 @@ use App\Modules\Catalog\Models\Brand;
 use App\Modules\Catalog\Models\Category;
 use App\Modules\Catalog\Models\Product;
 use App\Modules\Foundation\Models\Warehouse;
+use App\Modules\Foundation\Services\Settings;
 use App\Modules\Inventory\Services\InventoryService;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -54,6 +55,17 @@ class StorefrontCatalogTest extends TestCase
         Category::factory()->create(['name' => 'قمصان', 'image' => 'categories/shirt.png', 'is_active' => true]);
 
         $this->get('/')->assertOk()->assertSee('categories/shirt.png', false);
+    }
+
+    public function test_storefront_uses_uploaded_logo_and_favicon(): void
+    {
+        Settings::set('store.logo', 'branding/logo.png');
+        Settings::set('store.favicon', 'branding/favicon.png');
+
+        $res = $this->get('/')->assertOk();
+        $res->assertSee('branding/logo.png', false);      // الشعار المرفوع في الترويسة
+        $res->assertSee('rel="icon"', false);             // رابط الأيقونة في head
+        $res->assertSee('branding/favicon.png', false);
     }
 
     public function test_shop_lists_only_active_and_visible_products(): void
