@@ -3,8 +3,10 @@
 namespace App\Modules\Catalog\Services;
 
 use App\Modules\Catalog\Models\Product;
+use App\Modules\Catalog\Models\Unit;
 use App\Support\SlugGenerator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 /**
  * منطق أعمال المنتجات (خارج المتحكمات): توليد slug، اشتقاق is_active من status،
@@ -19,8 +21,19 @@ class ProductService
         return DB::transaction(function () use ($data) {
             [$tagIds, $attributeIds, $axes, $overrides, $attributes] = $this->extractRelations($data);
 
+            // قيم افتراضية للحقول المُزالة من النموذج المبسّط.
+            $attributes['status'] = $attributes['status'] ?? 'active';
+            $attributes['visibility'] = $attributes['visibility'] ?? 'visible';
+            $attributes['type'] = $attributes['type'] ?? 'simple';
+            if (empty($attributes['sku'])) {
+                $attributes['sku'] = $this->generateSku();
+            }
+            if (empty($attributes['unit_id'])) {
+                $attributes['unit_id'] = Unit::query()->orderBy('id')->value('id');
+            }
+
             $attributes['slug'] = $this->resolveSlug($attributes);
-            $attributes['is_active'] = ($attributes['status'] ?? 'draft') === 'active';
+            $attributes['is_active'] = $attributes['status'] === 'active';
             $attributes = $this->normalizePrices($attributes);
 
             $product = Product::create($attributes);
@@ -160,6 +173,16 @@ class ProductService
         unset($data['tag_ids'], $data['attribute_ids'], $data['axes'], $data['variants']);
 
         return [$tagIds, $attributeIds, $axes, $overrides, $data];
+    }
+
+    /** يولّد رمز منتج (SKU) فريدًا عند عدم إدخاله في النموذج المبسّط. */
+    private function generateSku(): string
+    {
+        do {
+            $sku = 'P-'.strtoupper(Str::random(8));
+        } while (Product::withTrashed()->where('sku', $sku)->exists());
+
+        return $sku;
     }
 
     private function resolveSlug(array $data, ?Product $product = null): string

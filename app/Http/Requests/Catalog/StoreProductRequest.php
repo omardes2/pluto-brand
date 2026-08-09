@@ -16,14 +16,14 @@ class StoreProductRequest extends FormRequest
     {
         return [
             'category_id' => ['required', 'integer', 'exists:categories,id'],
-            'unit_id' => ['required', 'integer', 'exists:units,id'],
+            'unit_id' => ['nullable', 'integer', 'exists:units,id'], // يُملأ افتراضيًا إن تُرك فارغًا
             'brand_id' => ['nullable', 'integer', 'exists:brands,id'],
             'branch_id' => ['nullable', 'integer', 'exists:branches,id'],
 
             'name' => ['required', 'string', 'max:200'],
             'name_en' => ['nullable', 'string', 'max:200'],
             'slug' => ['nullable', 'string', 'max:220', 'unique:products,slug'],
-            'sku' => ['required', 'string', 'max:60', 'unique:products,sku'],
+            'sku' => ['nullable', 'string', 'max:60', 'unique:products,sku'], // يُولَّد تلقائيًا إن تُرك فارغًا
             'barcode' => ['nullable', 'string', 'max:60'],
             'type' => ['sometimes', Rule::in(['simple', 'variable'])],
 
