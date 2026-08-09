@@ -22,9 +22,14 @@
                 @foreach ($categories as $category)
                     <a href="{{ route('storefront.category', $category->slug) }}"
                        class="flex flex-col items-center gap-2 p-3 rounded-xl bg-white border border-gray-200 hover:border-gray-400 hover:shadow-sm text-center">
-                        <span class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-gray-900 font-bold">
-                            {{ mb_substr($category->name, 0, 1) }}
-                        </span>
+                        @if ($category->iconUrl())
+                            <img src="{{ $category->iconUrl() }}" alt="{{ $category->name }}" loading="lazy"
+                                 class="h-10 w-10 rounded-full object-cover bg-gray-100" />
+                        @else
+                            <span class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-gray-900 font-bold">
+                                {{ mb_substr($category->name, 0, 1) }}
+                            </span>
+                        @endif
                         <span class="text-xs text-gray-700 line-clamp-1">{{ $category->name }}</span>
                     </a>
                 @endforeach

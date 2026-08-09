@@ -10,6 +10,7 @@ use App\Modules\Foundation\Models\Warehouse;
 use App\Modules\Inventory\Services\InventoryService;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -45,6 +46,14 @@ class StorefrontCatalogTest extends TestCase
     public function test_home_page_loads_even_with_empty_catalog(): void
     {
         $this->get('/')->assertOk();
+    }
+
+    public function test_home_shows_category_icon_when_uploaded(): void
+    {
+        Cache::forget('storefront:categories');
+        Category::factory()->create(['name' => 'قمصان', 'image' => 'categories/shirt.png', 'is_active' => true]);
+
+        $this->get('/')->assertOk()->assertSee('categories/shirt.png', false);
     }
 
     public function test_shop_lists_only_active_and_visible_products(): void
