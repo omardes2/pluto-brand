@@ -82,17 +82,18 @@ class InventoryController extends Controller
         $this->authorize('update', $product);
 
         $variant = $product->defaultVariant()->first();
-        $warehouse = $this->defaultWarehouse();
-        $quantity = ($variant && $warehouse)
-            ? (float) InventoryStock::where('variant_id', $variant->id)
-                ->where('warehouse_id', $warehouse->id)->value('on_hand')
-            : 0.0;
+
+        // المتغيّرات الحقيقية (مقاس/لون) — إن وُجد أكثر من واحد فالكمية موزّعة عليها،
+        // وتُدار من كرت الصنف فقط. الكمية المعروضة دائمًا هي الإجمالي عبر كل المتغيّرات.
+        $hasVariants = $product->variants()->count() > 1;
+        $quantity = (float) $product->stocks()->sum('on_hand');
 
         return view('admin.inventory.product-edit', [
             'product' => $product,
             'categories' => Category::orderBy('name')->get(['id', 'name']),
             'variant' => $variant,
             'quantity' => $quantity,
+            'hasVariants' => $hasVariants,
         ]);
     }
 
@@ -125,8 +126,13 @@ class InventoryController extends Controller
         if ($variant) {
             $variant->update(['barcode' => $data['barcode'] ?? null]);
 
+            // الكمية تُدار من هنا فقط للأصناف البسيطة (متغيّر واحد). أمّا أصناف المقاسات/الألوان
+            // فكميّاتها موزّعة على المتغيّرات وتُعدَّل من كرت الصنف — نتجاهل حقل الكمية هنا كي لا
+            // نُفسد التوزيع بضبط المتغيّر الافتراضي وحده.
+            $hasVariants = $product->variants()->count() > 1;
+
             // ضبط الكمية المتوفرة عبر تسوية مخزنية على المستودع الافتراضي (تظهر في سجل المخزن).
-            if (($data['quantity'] ?? null) !== null && ($warehouse = $this->defaultWarehouse())) {
+            if (! $hasVariants && ($data['quantity'] ?? null) !== null && ($warehouse = $this->defaultWarehouse())) {
                 $current = (float) InventoryStock::where('variant_id', $variant->id)
                     ->where('warehouse_id', $warehouse->id)->value('on_hand');
                 $delta = round((float) $data['quantity'] - $current, 2);
