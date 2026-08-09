@@ -21,7 +21,7 @@ use Illuminate\Support\Facades\Schema;
  */
 class ResetStoreData extends Command
 {
-    protected $signature = 'store:reset {--dry-run : عرض ما سيُحذف دون تنفيذ} {--force : تنفيذ دون تأكيد}';
+    protected $signature = 'store:reset {--dry-run : عرض ما سيُحذف دون تنفيذ} {--force : تنفيذ دون تأكيد} {--with-categories : حذف التصنيفات والعلامات أيضًا (تبقى السمات)}';
 
     protected $description = 'تهيئة المتجر لبداية نظيفة: حذف البيانات التشغيلية وتصفير الصناديق مع الإبقاء على السمات والتصنيفات والبنية.';
 
@@ -77,8 +77,15 @@ class ResetStoreData extends Command
         $this->line($dry ? '— وضع المعاينة (لن يُحذف شيء) —' : '— تهيئة المتجر لبداية نظيفة —');
         $this->newLine();
 
+        // التصنيفات/العلامات تُحذف فقط عند --with-categories (السمات تبقى دائمًا).
+        $tables = self::CLEAR_TABLES;
+        if ($this->option('with-categories')) {
+            $tables[] = 'categories';
+            $tables[] = 'brands';
+        }
+
         $counts = [];
-        foreach (self::CLEAR_TABLES as $table) {
+        foreach ($tables as $table) {
             if (Schema::hasTable($table)) {
                 $n = DB::table($table)->count();
                 if ($n > 0) {
@@ -100,7 +107,8 @@ class ResetStoreData extends Command
         $this->line(sprintf('  %-32s %d', 'treasuries (تصفير الرصيد الافتتاحي)', $treasuries));
         $this->newLine();
 
-        $this->comment('سيبقى: سمات المنتجات وقيمها، التصنيفات، العلامات، الوسوم، والبنية الأساسية.');
+        $keptMeta = $this->option('with-categories') ? 'الوسوم' : 'التصنيفات، العلامات، الوسوم';
+        $this->comment("سيبقى: سمات المنتجات وقيمها، {$keptMeta}، والبنية الأساسية.");
         $this->newLine();
 
         $total = array_sum($counts) + $subAccounts;
