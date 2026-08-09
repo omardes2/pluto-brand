@@ -15,6 +15,12 @@
     $metaDescription = $description ?: __('storefront.tagline');
     $canonicalUrl = $canonical ?: url()->current();
     $freeShip = config('storefront.promotions.free_shipping_threshold');
+
+    // الشعار وأيقونة الموقع (من إعدادات النظام) — مسارات على القرص العام.
+    $logoPath = \App\Modules\Foundation\Services\Settings::get('store.logo');
+    $faviconPath = \App\Modules\Foundation\Services\Settings::get('store.favicon');
+    $logoUrl = $logoPath ? \Illuminate\Support\Facades\Storage::disk('public')->url($logoPath) : null;
+    $faviconUrl = $faviconPath ? \Illuminate\Support\Facades\Storage::disk('public')->url($faviconPath) : null;
 @endphp
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', $locale) }}" dir="{{ $isRtl ? 'rtl' : 'ltr' }}">
@@ -48,6 +54,13 @@
         <meta name="twitter:image" content="{{ $image }}">
     @endif
 
+    {{-- أيقونة الموقع (Favicon) من الإعدادات --}}
+    @if ($faviconUrl)
+        <link rel="icon" href="{{ $faviconUrl }}">
+        <link rel="shortcut icon" href="{{ $faviconUrl }}">
+        <link rel="apple-touch-icon" href="{{ $faviconUrl }}">
+    @endif
+
     {{-- Structured data (JSON-LD) — pages push here --}}
     @stack('structured-data')
 
@@ -76,8 +89,12 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex items-center gap-3 h-16">
                 <a href="{{ route('storefront.home') }}" class="flex items-center gap-2 shrink-0">
-                    <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-gray-900 text-white font-bold tracking-tight">P</span>
-                    <span class="font-bold text-lg tracking-tight text-gray-900 hidden sm:inline">{{ $siteName }}</span>
+                    @if ($logoUrl)
+                        <img src="{{ $logoUrl }}" alt="{{ $siteName }}" class="h-9 w-auto max-w-[160px] object-contain" />
+                    @else
+                        <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-gray-900 text-white font-bold tracking-tight">P</span>
+                        <span class="font-bold text-lg tracking-tight text-gray-900 hidden sm:inline">{{ $siteName }}</span>
+                    @endif
                 </a>
 
                 {{-- البحث --}}
