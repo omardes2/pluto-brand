@@ -101,7 +101,17 @@ class OrderDeliveryDispatcher
 
         $qty = (int) max(1, (int) round($order->items->sum(fn ($i) => (float) $i->qty)));
         $description = $order->items
-            ->map(fn ($i) => trim(($i->variant?->product?->name ?? '').' ×'.rtrim(rtrim((string) $i->qty, '0'), '.')))
+            ->map(function ($i) {
+                $name = $i->variant?->product?->name ?? $i->variant?->name ?? '';
+                // إلحاق خيار المتغيّر (مقاس/لون) إن اختلف عن اسم المنتج (تفادي تكرار البسيط).
+                $opt = $i->variant?->name;
+                if ($opt && $i->variant?->product && $opt !== $i->variant->product->name) {
+                    $name .= ' — '.$opt;
+                }
+                $q = rtrim(rtrim((string) $i->qty, '0'), '.');
+
+                return trim($name.' ×'.$q);
+            })
             ->filter()->implode(' , ');
 
         // الدفع عند الاستلام هو النمط الافتراضي (يُلغى إن كان الطلب مدفوعًا مسبقًا).

@@ -21,6 +21,9 @@ class FakeTrackingDeliveryProvider extends OpostDeliveryProvider
     /** نتيجة cancel القابلة للضبط (لمحاكاة نجاح/فشل الإلغاء لدى المزوّد). */
     public static bool $cancelResult = true;
 
+    /** آخر حمولة مُرسَلة إلى createShipment (لفحص محتوى الشحنة في الاختبارات). */
+    public static ?array $lastPayload = null;
+
     public function cancel(string $reference): bool
     {
         return self::$cancelResult;
@@ -28,6 +31,8 @@ class FakeTrackingDeliveryProvider extends OpostDeliveryProvider
 
     public function createShipment(array $payload): array
     {
+        self::$lastPayload = $payload;
+
         return self::$createResult ?? [
             'status' => 'created',
             'tracking_number' => 'FT-'.($payload['reference'] ?? 'X'),
