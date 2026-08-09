@@ -39,10 +39,6 @@
                                 <input id="c-phone" x-model="form.customer_phone" required inputmode="tel" class="w-full rounded-lg border-gray-300 focus:border-gray-900 focus:ring-gray-900">
                             </div>
                         </div>
-                        <div>
-                            <label for="c-email" class="block text-sm font-medium text-gray-700 mb-1">{{ __('storefront.customer_email') }}</label>
-                            <input id="c-email" type="email" x-model="form.customer_email" class="w-full rounded-lg border-gray-300 focus:border-gray-900 focus:ring-gray-900">
-                        </div>
                     </div>
 
                     <div class="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
@@ -125,7 +121,7 @@
                 order: null,
                 areas: @json($areas),
                 cityRates: @json($cityRates),
-                form: { customer_name: '', customer_phone: '', customer_email: '', shipping_address: '', city_id: '', area_id: '', payment_method_code: 'cod' },
+                form: { customer_name: '', customer_phone: '', shipping_address: '', city_id: '', area_id: '', payment_method_code: 'cod' },
 
                 get areasForCity() {
                     return this.form.city_id ? this.areas.filter(a => a.city_id === Number(this.form.city_id)) : [];
