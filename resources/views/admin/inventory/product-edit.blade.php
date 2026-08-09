@@ -24,8 +24,8 @@
                 <div class="text-sm text-sky-800 bg-sky-50 border border-sky-200 rounded-lg p-3 flex items-start gap-2">
                     <svg class="w-5 h-5 shrink-0 text-sky-500" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z"/></svg>
                     <span>
-                        {{ __('هذا الصنف له مقاسات/ألوان — الكمية المعروضة هي الإجمالي، وتُوزَّع على كل مقاس ولون.') }}
-                        <a href="{{ route('admin.products.edit', $product) }}" class="font-semibold underline hover:no-underline">{{ __('عدّل الكميات من كرت الصنف') }}</a>.
+                        {{ __('هذا الصنف له مقاسات/ألوان — عدّل كمية كل مقاس ولون من الجدول أدناه.') }}
+                        <a href="{{ route('admin.products.edit', $product) }}" class="font-semibold underline hover:no-underline">{{ __('أو من كرت الصنف') }}</a>.
                     </span>
                 </div>
             @endif
@@ -52,7 +52,7 @@
 
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 @if ($hasVariants ?? false)
-                    {{-- صنف بمقاسات/ألوان: الكمية إجمالي المتغيّرات وتُدار من كرت الصنف فقط. --}}
+                    {{-- صنف بمقاسات/ألوان: عرض الإجمالي (للقراءة) — التعديل من جدول الكميات أدناه. --}}
                     <x-admin.field :label="__('إجمالي الكمية المتوفرة')" name="quantity_total">
                         <input type="number" value="{{ rtrim(rtrim(number_format((float) $quantity, 2, '.', ''), '0'), '.') }}"
                                readonly disabled
@@ -82,6 +82,41 @@
             @unless ($variant)
                 <p class="text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded-lg p-3">{{ __('لا يوجد متغيّر افتراضي لهذا الصنف — لن تُحفَظ الكمية والباركود.') }}</p>
             @endunless
+
+            {{-- كميّات المقاسات/الألوان — قابلة للتعديل مباشرة --}}
+            @php($variantRows = ($hasVariants ?? false) ? ($variants ?? collect()) : collect())
+            @if ($variantRows->isNotEmpty())
+                <div class="border-t border-gray-100 pt-5">
+                    <h4 class="text-sm font-bold text-gray-800 mb-1">{{ __('كميّات المقاسات والألوان') }}</h4>
+                    <p class="text-xs text-gray-400 mb-3">{{ __('عدّل كمية كل مقاس/لون. تُسجَّل التغييرات في سجل المخزن.') }}</p>
+                    <div class="overflow-x-auto rounded-lg border border-gray-100">
+                        <table class="min-w-full text-sm">
+                            <thead class="bg-gray-50 text-gray-500">
+                                <tr>
+                                    <th class="py-2 px-3 text-start font-medium">{{ __('المقاس / اللون') }}</th>
+                                    <th class="py-2 px-3 text-start font-medium">{{ __('الباركود') }}</th>
+                                    <th class="py-2 px-3 text-start font-medium w-32">{{ __('الكمية') }}</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100">
+                                @foreach ($variantRows as $v)
+                                    @php($label = $v->optionLabel() ?: ($v->sku ?: __('أساسي')))
+                                    <tr>
+                                        <td class="py-2 px-3 text-gray-800">{{ $label }}</td>
+                                        <td class="py-2 px-3 text-gray-400 tabular-nums">{{ $v->barcode ?: '—' }}</td>
+                                        <td class="py-2 px-3">
+                                            <input type="number" step="0.01" min="0"
+                                                   name="variant_qty[{{ $v->id }}]"
+                                                   value="{{ old('variant_qty.'.$v->id, rtrim(rtrim(number_format((float) ($stockByVariant[$v->id] ?? 0), 2, '.', ''), '0'), '.')) }}"
+                                                   class="w-28 rounded-lg border-gray-300 focus:border-emerald-500 focus:ring-emerald-500 tabular-nums" />
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            @endif
 
             <div class="flex items-center justify-end gap-2 pt-2">
                 <a href="{{ route('admin.inventory.stocks') }}" class="btn-secondary">{{ __('إلغاء') }}</a>
