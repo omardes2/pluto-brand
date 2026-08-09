@@ -105,6 +105,7 @@
         ]],
         ['الإعدادات', 'cog', [
             ['admin.settings.edit', 'إعدادات النظام', 'settings.system.view', 'admin.settings.*'],
+            ['admin.banners.index', 'بنر الصفحة الرئيسية', 'settings.system.view', 'admin.banners.*'],
         ]],
     ];
 

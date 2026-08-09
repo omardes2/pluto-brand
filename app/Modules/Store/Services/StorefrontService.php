@@ -7,6 +7,7 @@ use App\Modules\Catalog\Models\Category;
 use App\Modules\Catalog\Models\Product;
 use App\Modules\Foundation\Models\Branch;
 use App\Modules\Inventory\Models\InventoryStock;
+use App\Modules\Store\Models\StoreBanner;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -179,6 +180,17 @@ class StorefrontService
     public function findBrandBySlug(string $slug): Brand
     {
         return Brand::query()->active()->where('slug', $slug)->firstOrFail();
+    }
+
+    /**
+     * شرائح سلايدر الصفحة الرئيسية (المفعّلة، مرتّبة) — مُخزّنة مؤقتًا وتُبطَل عند أي تعديل بنر.
+     *
+     * @return Collection<int, StoreBanner>
+     */
+    public function banners(): Collection
+    {
+        return Cache::remember('storefront:banners', now()->addMinutes(30),
+            fn () => StoreBanner::query()->active()->orderBy('sort_order')->orderByDesc('id')->get());
     }
 
     // ---- تسعير/توافر (يُعاد استخدامهما من CartService — لا تكرار منطق) ----
