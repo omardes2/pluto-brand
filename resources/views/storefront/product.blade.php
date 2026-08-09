@@ -63,10 +63,6 @@
             @endif
             <h1 class="text-2xl font-bold text-gray-900 mt-1">{{ $displayName }}</h1>
 
-            <div class="mt-2 text-sm text-gray-500 flex items-center gap-3">
-                <span>{{ __('storefront.sku') }}: {{ $product->sku }}</span>
-            </div>
-
             @php
                 $options = $sf->options($product);
                 $hasOptions = count($options) > 0;
@@ -76,18 +72,26 @@
                 foreach (($defaultVariant?->attributeValues ?? []) as $val) {
                     $defaultSel[(int) $val->attribute_id] = (int) $val->id;
                 }
+                // الباركود المعروض: باركود المتغيّر الافتراضي، وإلا باركود المنتج، وإلا رمز المنتج.
+                $defaultBarcode = $defaultVariant?->barcode ?: ($product->barcode ?: $product->sku);
                 $pageCfg = [
                     'options' => $options,
                     'map' => $variantMap,
                     'initial' => (object) $defaultSel,
                     'defaultPrice' => $price,
                     'defaultRegular' => $regular,
+                    'defaultBarcode' => $defaultBarcode,
                 ];
             @endphp
 
             @if ($hasOptions)
-                {{-- منتج متعدّد الخيارات: تسعير/توافر/إضافة مدفوعة باختيار المقاس/اللون --}}
+                {{-- منتج متعدّد الخيارات: باركود/تسعير/توافر/إضافة مدفوعة باختيار المقاس/اللون --}}
                 <div x-data="productPage(@js($pageCfg))" x-cloak>
+                    {{-- الباركود (يتغيّر حسب المتغيّر المختار) --}}
+                    <div class="mt-2 text-sm text-gray-500 flex items-center gap-3">
+                        <span>{{ __('storefront.barcode') }}: <span x-text="barcode"></span></span>
+                    </div>
+
                     {{-- السعر --}}
                     <div class="mt-4 flex items-center gap-3">
                         <span class="text-3xl font-bold text-black"><span x-text="fmt(price)"></span> {{ __('storefront.currency') }}</span>
@@ -158,6 +162,11 @@
                 </div>
             @else
                 {{-- منتج بسيط: كما هو (متغيّر افتراضي واحد) --}}
+                {{-- الباركود --}}
+                <div class="mt-2 text-sm text-gray-500 flex items-center gap-3">
+                    <span>{{ __('storefront.barcode') }}: {{ $defaultBarcode }}</span>
+                </div>
+
                 {{-- السعر --}}
                 <div class="mt-4 flex items-center gap-3">
                     <span class="text-3xl font-bold text-black">{{ number_format($price, 2) }} {{ __('storefront.currency') }}</span>
@@ -321,6 +330,7 @@
                 },
                 get incomplete() { return this.key === null; },
                 get current() { const k = this.key; return k === null ? null : (this.map[k] || null); },
+                get barcode() { return (this.current && this.current.barcode) ? this.current.barcode : cfg.defaultBarcode; },
                 get price() { return this.current ? this.current.price : cfg.defaultPrice; },
                 get regular() { return this.current ? this.current.regular : cfg.defaultRegular; },
                 get onSale() { return !!this.current && this.current.price + 1e-9 < this.current.regular; },

@@ -141,6 +141,7 @@ class StorefrontService
             $map[$key] = [
                 'uuid' => $variant->uuid,
                 'value_ids' => $valueIds->all(),
+                'barcode' => $variant->barcode,
                 'price' => $this->carts->sellingPrice($variant),
                 'regular' => (float) $variant->retail_price,
                 'available' => $available,
