@@ -79,8 +79,76 @@ class StorefrontService
     {
         return Product::query()->active()->visible()
             ->where('slug', $slug)
-            ->with(['images', 'variants', 'defaultVariant.inventoryStocks', 'brand', 'category', 'attributes.values', 'unit'])
+            ->with([
+                'images', 'brand', 'category', 'attributes.values', 'unit',
+                'defaultVariant.inventoryStocks',
+                'variants' => fn ($q) => $q->where('is_active', true),
+                'variants.inventoryStocks', 'variants.attributeValues.attribute',
+            ])
             ->firstOrFail();
+    }
+
+    /**
+     * محاور الخيارات المعروضة للمنتج (مقاس/لون…) مشتقّة من متغيّراته النشطة.
+     * لكل محور: السمة وقيمها المتوفّرة فعليًا، مرتّبة.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function options(Product $product): array
+    {
+        $byAttribute = [];   // attribute_id => ['attribute' => ProductAttribute, 'values' => [id => value]]
+        foreach ($product->variants as $variant) {
+            foreach ($variant->attributeValues as $value) {
+                $aid = (int) $value->attribute_id;
+                $byAttribute[$aid]['attribute'] ??= $value->attribute;
+                $byAttribute[$aid]['values'][$value->id] = $value;
+            }
+        }
+
+        // ترتيب المحاور حسب ترتيب السمة، والقيم حسب ترتيبها.
+        uasort($byAttribute, fn ($a, $b) => ($a['attribute']?->sort_order ?? 0) <=> ($b['attribute']?->sort_order ?? 0));
+
+        $out = [];
+        foreach ($byAttribute as $aid => $data) {
+            $values = collect($data['values'])
+                ->sortBy(fn ($v) => $v->sort_order ?? 0)
+                ->map(fn ($v) => ['id' => $v->id, 'label' => $v->label ?: $v->value, 'color_hex' => $v->color_hex])
+                ->values()->all();
+            $out[] = [
+                'id' => $aid,
+                'name' => $data['attribute']?->name,
+                'type' => $data['attribute']?->type,
+                'values' => $values,
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * خريطة المتغيّرات: مفتاح التركيبة → بيانات الشراء (uuid/سعر/توافر).
+     * المفتاح = معرّفات القيم مرتّبة بـ«-» (يطابق ما يحسبه العميل)، أو «» للمتغيّر البسيط.
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    public function variantMap(Product $product): array
+    {
+        $map = [];
+        foreach ($product->variants as $variant) {
+            $valueIds = $variant->attributeValues->pluck('id')->map(fn ($id) => (int) $id)->sort()->values();
+            $key = $valueIds->implode('-'); // «» عند غياب الخيارات
+            $available = $this->carts->availableQty($variant);
+            $map[$key] = [
+                'uuid' => $variant->uuid,
+                'value_ids' => $valueIds->all(),
+                'price' => $this->carts->sellingPrice($variant),
+                'regular' => (float) $variant->retail_price,
+                'available' => $available,
+                'in_stock' => $available > 1e-9,
+            ];
+        }
+
+        return $map;
     }
 
     /**
