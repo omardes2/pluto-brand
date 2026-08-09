@@ -192,19 +192,33 @@ class ProductImportService
             return $this->categoryCache[$name];
         }
 
-        $slug = Str::slug($name);
-        if ($slug === '') {
-            // اسم قد يُنتج slug فارغًا — بديل ثابت مشتقّ من الاسم.
-            $slug = 'cat-'.substr(md5($name), 0, 12);
+        // 1) موجود بالاسم؟ أعِد استخدامه.
+        $existing = Category::where('name', $name)->first();
+        if ($existing) {
+            return $this->categoryCache[$name] = $existing;
         }
 
-        // firstOrCreate على الـ slug: نفس الاسم ⇐ نفس الـ slug ⇐ نفس التصنيف دائمًا.
-        $category = Category::firstOrCreate(
-            ['slug' => $slug],
-            ['name' => $name, 'is_active' => true],
-        );
+        // 2) موجود بالـ slug الأساسي (اسم بمسافات مختلفة سابقًا)؟ أعِد استخدامه.
+        $base = Str::slug($name);
+        if ($base === '') {
+            $base = 'cat-'.substr(md5($name), 0, 12);
+        }
+        $existing = Category::where('slug', $base)->first();
+        if ($existing) {
+            return $this->categoryCache[$name] = $existing;
+        }
 
-        return $this->categoryCache[$name] = $category;
+        // 3) أنشئ بـ slug فريد مضمون (لا يصطدم بفرادة categories_slug_unique أبدًا).
+        $slug = $base;
+        $i = 2;
+        while (Category::where('slug', $slug)->exists()) {
+            $slug = $base.'-'.$i;
+            $i++;
+        }
+
+        return $this->categoryCache[$name] = Category::create([
+            'name' => $name, 'slug' => $slug, 'is_active' => true,
+        ]);
     }
 
     private function defaultWarehouse(): ?Warehouse

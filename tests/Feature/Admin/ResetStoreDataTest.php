@@ -92,4 +92,21 @@ class ResetStoreDataTest extends TestCase
         $this->assertNotNull(User::where('email', 'admin@pluto-brand.com')->first());
         $this->assertGreaterThan(0, Warehouse::count());
     }
+
+    public function test_with_categories_option_also_clears_categories_but_keeps_attributes(): void
+    {
+        Category::factory()->create(['name' => 'قمصان']);
+        Brand::factory()->create(['name' => 'بلوتو']);
+        $attr = ProductAttribute::factory()->create(['name' => 'المقاس']);
+        ProductAttributeValue::factory()->count(2)->create(['attribute_id' => $attr->id]);
+
+        Artisan::call('store:reset', ['--force' => true, '--with-categories' => true]);
+
+        // التصنيفات والعلامات حُذفت.
+        $this->assertSame(0, Category::count());
+        $this->assertSame(0, Brand::count());
+        // السمات وقيمها بقيت.
+        $this->assertGreaterThan(0, ProductAttribute::count());
+        $this->assertSame(2, ProductAttributeValue::count());
+    }
 }
