@@ -33,6 +33,25 @@ class ProductServiceTest extends TestCase
         $this->assertTrue($active->is_active);
     }
 
+    public function test_create_fills_defaults_for_omitted_fields(): void
+    {
+        // النموذج المبسّط لا يرسل SKU/الوحدة/الحالة/الظهور.
+        $unit = Unit::factory()->create();
+        $svc = app(ProductService::class);
+
+        $product = $svc->create([
+            'category_id' => Category::factory()->create()->id,
+            'name' => 'منتج مبسّط',
+        ]);
+
+        $this->assertNotEmpty($product->sku);                 // SKU مُولَّد تلقائيًا
+        $this->assertSame($unit->id, $product->unit_id);      // وحدة افتراضية
+        $this->assertSame('active', $product->status);        // مفعّل افتراضيًا
+        $this->assertTrue($product->is_active);
+        $this->assertSame('visible', $product->visibility);   // ظاهر افتراضيًا
+        $this->assertNotNull($product->defaultVariant);       // متغيّر افتراضي بـ SKU المُولَّد
+    }
+
     public function test_empty_slug_is_derived_from_name(): void
     {
         $svc = app(ProductService::class);
