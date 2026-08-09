@@ -147,6 +147,19 @@ class InventoryController extends Controller
             if ($hasVariants) {
                 // أصناف المقاسات/الألوان: تُضبط كمية كل متغيّر على حدة من جدول الكميات.
                 $this->syncVariantQuantities($product, $warehouse, (array) ($data['variant_qty'] ?? []), $data['cost_price'] ?? null);
+
+                // «إجمالي الكمية» حقل حرّ: إن اختلف عن مجموع الصفوف، يُضاف/يُخصم الفرق على
+                // المتغيّر الافتراضي فقط (التعديل عبر الصفوف يُبقي الإجمالي مطابقًا فلا فرق).
+                if ($variant && ($data['quantity'] ?? null) !== null) {
+                    $sum = (float) InventoryStock::whereIn('variant_id', $product->variants()->pluck('id'))
+                        ->where('warehouse_id', $warehouse->id)->sum('on_hand');
+                    $diff = round((float) $data['quantity'] - $sum, 2);
+                    if (abs($diff) >= 0.001) {
+                        $defaultOnHand = (float) InventoryStock::where('variant_id', $variant->id)
+                            ->where('warehouse_id', $warehouse->id)->value('on_hand');
+                        $this->adjustVariantTo($variant, $warehouse, max(0.0, $defaultOnHand + $diff), $product->sku, $data['cost_price'] ?? null);
+                    }
+                }
             } elseif ($variant && ($data['quantity'] ?? null) !== null) {
                 // صنف بسيط (متغيّر واحد): حقل كمية واحد.
                 $this->adjustVariantTo($variant, $warehouse, (float) $data['quantity'], $product->sku, $data['cost_price'] ?? null);

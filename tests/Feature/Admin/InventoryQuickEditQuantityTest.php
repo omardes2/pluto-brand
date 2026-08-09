@@ -51,7 +51,30 @@ class InventoryQuickEditQuantityTest extends TestCase
         $res->assertSee('variant_qty[', false);                         // حقول كمية لكل متغيّر
     }
 
-    public function test_quantity_edit_ignored_for_multi_variant_product(): void
+    public function test_total_field_applies_difference_to_default_variant(): void
+    {
+        $product = Product::factory()->active()->create(['retail_price' => 60]);
+        $default = $product->defaultVariant;
+        $second = ProductVariant::factory()->create(['product_id' => $product->id, 'retail_price' => 60]);
+        app(InventoryService::class)->receive($default, $this->warehouse, 2, 25);
+        app(InventoryService::class)->receive($second, $this->warehouse, 46, 25); // الإجمالي 48
+
+        // كتابة إجمالي أكبر (60) دون تغيير الصفوف → يُضاف الفرق (12) للمتغيّر الافتراضي فقط.
+        $this->actingAs($this->admin())->put("/admin/inventory/products/{$product->uuid}", [
+            'name' => $product->name,
+            'category_id' => $product->category_id,
+            'quantity' => 60,
+        ])->assertRedirect();
+
+        $onHand = fn ($vid) => (float) InventoryStock::where('variant_id', $vid)
+            ->where('warehouse_id', $this->warehouse->id)->value('on_hand');
+
+        $this->assertSame(14.0, $onHand($default->id)); // 2 + 12
+        $this->assertSame(46.0, $onHand($second->id));  // لم يتغيّر
+        $this->assertSame(60.0, (float) $product->stocks()->sum('on_hand'));
+    }
+
+    public function test_total_matching_rows_sum_does_not_double_apply(): void
     {
         $product = Product::factory()->active()->create(['retail_price' => 60]);
         $default = $product->defaultVariant;
@@ -59,14 +82,20 @@ class InventoryQuickEditQuantityTest extends TestCase
         app(InventoryService::class)->receive($default, $this->warehouse, 2, 25);
         app(InventoryService::class)->receive($second, $this->warehouse, 46, 25);
 
-        // محاولة تمرير كمية يدوية — يجب تجاهلها كي لا تُفسد توزيع المتغيّرات.
+        // تعديل الصفوف مع إجمالي مطابق للمجموع (كما يفعل الجمع التلقائي) → لا فرق يُضاف.
         $this->actingAs($this->admin())->put("/admin/inventory/products/{$product->uuid}", [
             'name' => $product->name,
             'category_id' => $product->category_id,
-            'quantity' => 999,
+            'variant_qty' => [$default->id => 5, $second->id => 7],
+            'quantity' => 12,
         ])->assertRedirect();
 
-        $this->assertSame(48.0, (float) $product->stocks()->sum('on_hand'));
+        $onHand = fn ($vid) => (float) InventoryStock::where('variant_id', $vid)
+            ->where('warehouse_id', $this->warehouse->id)->value('on_hand');
+
+        $this->assertSame(5.0, $onHand($default->id));
+        $this->assertSame(7.0, $onHand($second->id));
+        $this->assertSame(12.0, (float) $product->stocks()->sum('on_hand'));
     }
 
     public function test_can_edit_per_variant_quantities_for_multi_variant_product(): void
