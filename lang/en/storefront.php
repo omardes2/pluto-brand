@@ -18,6 +18,9 @@ return [
     'language' => 'Language',
     'view_all' => 'View all',
     'menu' => 'Menu',
+    'prev' => 'Previous',
+    'next' => 'Next',
+    'go_to_slide' => 'Go to slide',
 
     // Listing
     'all_products' => 'All products',

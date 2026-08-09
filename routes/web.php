@@ -45,6 +45,7 @@ use App\Http\Controllers\Admin\Shipping\DeliveryRateController;
 use App\Http\Controllers\Admin\Shipping\DeliveryStatusController as AdminDeliveryStatusController;
 use App\Http\Controllers\Admin\Shipping\GeographyController as AdminGeographyController;
 use App\Http\Controllers\Admin\Shipping\ShipmentController as AdminShipmentController;
+use App\Http\Controllers\Admin\Store\BannerController as AdminBannerController;
 use App\Http\Controllers\Admin\System\ClearCacheController;
 use App\Http\Controllers\Admin\Users\UserController as AdminUserController;
 use App\Http\Controllers\ProfileController;
@@ -377,6 +378,17 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     Route::prefix('settings')->name('settings.')->group(function () {
         Route::get('/', [AdminSettingsController::class, 'edit'])->name('edit')->middleware('can:settings.system.view');
         Route::put('/', [AdminSettingsController::class, 'update'])->name('update')->middleware('can:settings.system.manage');
+    });
+
+    // شرائح بنر الصفحة الرئيسية (سلايدر) — تُدار من اللوحة
+    Route::prefix('banners')->name('banners.')->group(function () {
+        Route::get('/', [AdminBannerController::class, 'index'])->name('index')->middleware('can:settings.system.view');
+        Route::get('create', [AdminBannerController::class, 'create'])->name('create')->middleware('can:settings.system.manage');
+        Route::post('/', [AdminBannerController::class, 'store'])->name('store')->middleware('can:settings.system.manage');
+        Route::get('{banner}/edit', [AdminBannerController::class, 'edit'])->name('edit')->middleware('can:settings.system.manage');
+        Route::put('{banner}', [AdminBannerController::class, 'update'])->name('update')->middleware('can:settings.system.manage');
+        Route::post('{banner}/toggle', [AdminBannerController::class, 'toggle'])->name('toggle')->middleware('can:settings.system.manage');
+        Route::delete('{banner}', [AdminBannerController::class, 'destroy'])->name('destroy')->middleware('can:settings.system.manage');
     });
 
     // مسح كاش التطبيق من اللوحة (تحديثات الواجهة/الإعدادات) — بلا سطر أوامر.

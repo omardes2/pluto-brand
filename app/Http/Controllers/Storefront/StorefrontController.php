@@ -27,6 +27,7 @@ class StorefrontController extends Controller
     public function home(): View
     {
         return view('storefront.home', [
+            'banners' => $this->storefront->banners(),
             'featured' => $this->reco->featured(8),
             'newArrivals' => $this->reco->newArrivals(8),
             'categories' => $this->storefront->categories()->take(8),
