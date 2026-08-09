@@ -36,7 +36,12 @@
                         @foreach ($order->items as $item)
                             <tr>
                                 <td class="py-2 px-3 text-gray-800">
-                                    {{ $item->variant?->product?->name ?? $item->variant?->name ?? $item->variant?->sku ?? __('صنف محذوف') }}
+                                    @php
+                                        $line = $item->variant?->product?->name ?? $item->variant?->name ?? $item->variant?->sku ?? __('صنف محذوف');
+                                        $opt = $item->variant?->name;
+                                        if ($opt && $item->variant?->product && $opt !== $item->variant->product->name) { $line .= ' — '.$opt; }
+                                    @endphp
+                                    {{ $line }}
                                     @if ($item->variant?->sku)
                                         <span class="block text-xs text-gray-400 font-mono">{{ $item->variant->sku }}</span>
                                     @endif

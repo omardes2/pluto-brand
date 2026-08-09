@@ -44,8 +44,13 @@
             <h2 class="font-bold text-gray-900 mb-3">{{ __('account.items') }}</h2>
             <div class="divide-y divide-gray-100">
                 @foreach ($order->items as $item)
+                    @php
+                        $line = $item->variant?->product?->name ?? $item->variant?->sku ?? '—';
+                        $opt = $item->variant?->name;
+                        if ($opt && $item->variant?->product && $opt !== $item->variant->product->name) { $line .= ' — '.$opt; }
+                    @endphp
                     <div class="flex items-center justify-between py-2 text-sm">
-                        <span class="text-gray-700">{{ $item->variant?->sku ?? '—' }} × {{ (float) $item->qty }}</span>
+                        <span class="text-gray-700">{{ $line }} × {{ (float) $item->qty }}</span>
                         <span class="font-medium text-gray-800">{{ number_format((float) $item->line_total, 2) }} {{ __('storefront.currency') }}</span>
                     </div>
                 @endforeach

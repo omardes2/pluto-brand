@@ -135,7 +135,14 @@
             <tbody>
                 @foreach ($order->items as $item)
                     <tr>
-                        <td class="prod">{{ $item->variant?->product?->name ?? $item->variant?->name ?? $item->variant?->sku ?? __('صنف') }}</td>
+                        <td class="prod">
+                            @php
+                                $line = $item->variant?->product?->name ?? $item->variant?->name ?? $item->variant?->sku ?? __('صنف');
+                                $opt = $item->variant?->name;
+                                if ($opt && $item->variant?->product && $opt !== $item->variant->product->name) { $line .= ' — '.$opt; }
+                            @endphp
+                            {{ $line }}
+                        </td>
                         <td class="desc accent">{{ $item->variant?->sku ?: '—' }}</td>
                         <td class="num">{{ rtrim(rtrim(number_format((float) $item->qty, 2), '0'), '.') }}</td>
                         <td class="num">{{ $money($item->unit_price) }}</td>
