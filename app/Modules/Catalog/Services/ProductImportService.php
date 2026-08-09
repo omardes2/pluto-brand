@@ -5,8 +5,8 @@ namespace App\Modules\Catalog\Services;
 use App\Modules\Catalog\Models\Category;
 use App\Modules\Catalog\Models\Product;
 use App\Modules\Foundation\Models\Warehouse;
-use App\Support\SlugGenerator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 /**
  * استيراد المنتجات دفعةً من ملف CSV (يُحفَظ من Excel باسم «CSV UTF-8»).
@@ -87,13 +87,15 @@ class ProductImportService
 
     private function importRow(array $row, ?Warehouse $warehouse, array &$summary): void
     {
-        DB::transaction(function () use ($row, $warehouse, &$summary) {
+        // حلّ التصنيف خارج معاملة الصف: يبقى محفوظًا حتى لو فشل إنشاء المنتج، وidempotent.
+        $category = $this->resolveCategory(trim((string) ($row['category'] ?? '')));
+
+        DB::transaction(function () use ($row, $warehouse, $category, &$summary) {
             $name = trim((string) $row['name']);
             $barcode = trim((string) ($row['barcode'] ?? '')) ?: null;
             $retail = $this->number($row['retail_price'] ?? null);
             $cost = $this->number($row['cost_price'] ?? null);
             $qty = $this->number($row['quantity'] ?? null);
-            $category = $this->resolveCategory(trim((string) ($row['category'] ?? '')));
 
             $payload = [
                 'name' => $name,
@@ -176,8 +178,13 @@ class ProductImportService
         return is_numeric($clean) ? (float) $clean : 0.0;
     }
 
+    /**
+     * إيجاد أو إنشاء التصنيف بشكل idempotent عبر slug ثابت مشتقّ من الاسم.
+     * يمنع تكرار الإنشاء (وخطأ فرادة الـ slug) عند تكرار الاسم أو إعادة الاستيراد.
+     */
     private function resolveCategory(string $name): Category
     {
+        $name = trim(preg_replace('/\s+/u', ' ', $name)); // توحيد المسافات
         if ($name === '') {
             $name = __('غير مصنّف');
         }
@@ -185,12 +192,17 @@ class ProductImportService
             return $this->categoryCache[$name];
         }
 
-        $category = Category::where('name', $name)->first()
-            ?? Category::create([
-                'name' => $name,
-                'slug' => SlugGenerator::make(Category::class, $name),
-                'is_active' => true,
-            ]);
+        $slug = Str::slug($name);
+        if ($slug === '') {
+            // اسم قد يُنتج slug فارغًا — بديل ثابت مشتقّ من الاسم.
+            $slug = 'cat-'.substr(md5($name), 0, 12);
+        }
+
+        // firstOrCreate على الـ slug: نفس الاسم ⇐ نفس الـ slug ⇐ نفس التصنيف دائمًا.
+        $category = Category::firstOrCreate(
+            ['slug' => $slug],
+            ['name' => $name, 'is_active' => true],
+        );
 
         return $this->categoryCache[$name] = $category;
     }

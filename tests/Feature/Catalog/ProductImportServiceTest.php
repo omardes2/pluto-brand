@@ -93,6 +93,31 @@ class ProductImportServiceTest extends TestCase
             ->assertOk()->assertHeader('content-type', 'text/csv; charset=UTF-8');
     }
 
+    public function test_repeated_category_and_reimport_do_not_duplicate_or_error(): void
+    {
+        // نفس التصنيف يتكرّر في عدّة صفوف + إعادة الاستيراد لاحقًا.
+        $rows = [
+            'اسم الصنف,سعر البيع,الكمية,سعر الشراء,الباركود,التصنيف',
+            'قميص رجالي 1,120,5,60,BC1,قميص رجالي',
+            'قميص رجالي 2,130,5,60,BC2,قميص رجالي',
+            'حذاء 1,150,5,80,BC3,احذية',
+            'قميص رجالي 3,140,5,60,BC4,قميص رجالي',
+        ];
+        $svc = app(ProductImportService::class);
+
+        $first = $svc->import($this->csv(implode("\n", $rows)));
+        $this->assertSame(4, $first['created']);
+        $this->assertEmpty($first['errors']);                       // لا أخطاء تصنيف
+        $this->assertSame(1, Category::where('name', 'قميص رجالي')->count()); // تصنيف واحد فقط
+        $this->assertSame(2, Category::whereIn('name', ['قميص رجالي', 'احذية'])->count());
+
+        // إعادة الاستيراد (نفس الملف) — لا تكرار للتصنيفات ولا أخطاء.
+        $second = $svc->import($this->csv(implode("\n", $rows)));
+        $this->assertEmpty($second['errors']);
+        $this->assertSame(4, $second['updated']);                    // تُحدَّث بالباركود
+        $this->assertSame(1, Category::where('name', 'قميص رجالي')->count());
+    }
+
     public function test_duplicate_barcode_updates_existing_product(): void
     {
         $first = $this->csv(implode("\n", [
