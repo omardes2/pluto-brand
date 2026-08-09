@@ -13,6 +13,7 @@ use App\Http\Controllers\Admin\Catalog\BrandController;
 use App\Http\Controllers\Admin\Catalog\CategoryController;
 use App\Http\Controllers\Admin\Catalog\ProductAttributeController;
 use App\Http\Controllers\Admin\Catalog\ProductController;
+use App\Http\Controllers\Admin\Catalog\ProductImportController;
 use App\Http\Controllers\Admin\Catalog\ProductTagController;
 use App\Http\Controllers\Admin\Catalog\UnitController;
 use App\Http\Controllers\Admin\Commissions\CommissionController as AdminCommissionController;
@@ -169,6 +170,10 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     Route::delete('attributes/{attribute}/values/{value}', [ProductAttributeController::class, 'destroyValue'])->name('attributes.values.destroy');
 
     // المنتجات ووسائطها (Phase 2.3)
+    // استيراد المنتجات من CSV — قبل الـ resource لتفادي تعارض {product}.
+    Route::get('products/import', [ProductImportController::class, 'form'])->name('products.import.form')->middleware('can:catalog.products.create');
+    Route::post('products/import', [ProductImportController::class, 'import'])->name('products.import')->middleware('can:catalog.products.create');
+    Route::get('products/import/template', [ProductImportController::class, 'template'])->name('products.import.template')->middleware('can:catalog.products.create');
     Route::resource('products', ProductController::class)->except('show');
     Route::post('products/{product}/toggle-visibility', [ProductController::class, 'toggleVisibility'])->name('products.toggle-visibility');
     Route::post('products/{product}/images', [ProductController::class, 'storeImage'])->name('products.images.store');
