@@ -1,0 +1,37 @@
+name: Deploy to production
+
+# نشر تلقائي عند كل دمج/دفع إلى main (يشمل دمج Pull Requests).
+# يتّصل بالخادم عبر SSH ويشغّل سكربت التحديث الجاهز deploy/update.sh
+# الذي يتكفّل بـ: git pull + composer + migrate + npm build + optimize + reload.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}   # يسمح بتشغيل النشر يدويًا من تبويب Actions
+
+# نشر واحد في كل مرة — يمنع تداخل عمليتَي نشر متزامنتين.
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: SSH deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: تشغيل النشر على الخادم عبر SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.DEPLOY_SSH_HOST }}
+          username: ${{ secrets.DEPLOY_SSH_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_SSH_PORT || '22' }}
+          script_stop: true          # يوقف النشر عند أوّل خطأ
+          command_timeout: 20m
+          script: |
+            set -euo pipefail
+            APP_PATH="${{ secrets.DEPLOY_APP_PATH || '/var/www/pluto-brand' }}"
+            cd "$APP_PATH"
+            # يمنع خطأ "dubious ownership" عندما يختلف مالك المجلد عن منفّذ الأمر.
+            git config --global --add safe.directory "$APP_PATH" || true
+            # سكربت التحديث الجاهز يقرأ إعداداته من deploy/deploy.env على الخادم.
+            bash deploy/update.sh
