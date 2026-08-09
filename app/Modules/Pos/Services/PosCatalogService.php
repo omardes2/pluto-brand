@@ -28,6 +28,7 @@ class PosCatalogService
     public function search(int $warehouseId, ?string $q = null, ?int $categoryId = null, int $limit = 40): array
     {
         $query = ProductVariant::query()
+            ->where('is_active', true) // المتغيّرات النشطة فقط (تُستبعَد التركيبات القديمة المُعطّلة)
             ->with(['product:id,name,category_id,is_active', 'product.category:id,name'])
             ->whereHas('product', function ($p) use ($categoryId) {
                 $p->where('is_active', true);
@@ -55,9 +56,12 @@ class PosCatalogService
     public function findByBarcode(int $warehouseId, string $code): ?array
     {
         $variant = ProductVariant::query()
+            ->where('is_active', true) // لا يُباع متغيّر مُعطّل بالباركود
             ->with(['product:id,name,category_id,is_active', 'product.category:id,name'])
-            ->where('barcode', $code)
-            ->orWhereHas('product', fn ($p) => $p->where('barcode', $code)->where('is_active', true))
+            ->where(function ($w) use ($code) {
+                $w->where('barcode', $code)
+                    ->orWhereHas('product', fn ($p) => $p->where('barcode', $code)->where('is_active', true));
+            })
             ->first();
 
         if (! $variant) {
