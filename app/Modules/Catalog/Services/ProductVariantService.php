@@ -23,7 +23,7 @@ class ProductVariantService
      * يزامن متغيّرات المنتج مع مصفوفة المحاور المختارة.
      *
      * @param  array<int, array<int>>  $axes  خريطة attribute_id => [value_id, …]
-     * @param  array<string, array<string, mixed>>  $overrides  تخصيص لكل تركيبة (sku/retail_price/promo_price/is_active) مفتاحها comboKey
+     * @param  array<int, array<string, mixed>>  $overrides  قائمة صفوف لكل تركيبة: value_ids + sku/retail_price/promo_price/is_active/quantity
      * @return array<string, ProductVariant> المتغيّرات النشطة النهائية مفهرسة بمفتاح التركيبة
      */
     public function syncMatrix(Product $product, array $axes, array $overrides = []): array
@@ -39,6 +39,8 @@ class ProductVariantService
 
             $product->attributes()->sync(array_keys($axisValues));
 
+            $ovByKey = $this->indexOverrides($overrides);
+            $warehouse = $this->defaultWarehouse();
             $combos = $this->cartesian($axisValues); // كل عنصر: قائمة قيم (ProductAttributeValue) مرتّبة
             $existing = $this->existingByKey($product);
             $desiredKeys = [];
@@ -49,14 +51,14 @@ class ProductVariantService
                 $key = $this->comboKey($valueIds);
                 $desiredKeys[] = $key;
                 $label = collect($combo)->map(fn ($v) => $v->label ?: $v->value)->implode(' / ');
-                $ov = $overrides[$key] ?? [];
+                $ov = $ovByKey[$key] ?? [];
 
                 $variant = $existing[$key] ?? new ProductVariant(['product_id' => $product->id]);
                 $variant->product_id = $product->id;
                 $variant->name = $label;
                 $variant->is_active = array_key_exists('is_active', $ov) ? (bool) $ov['is_active'] : true;
                 $variant->retail_price = $ov['retail_price'] ?? $variant->retail_price ?? $product->retail_price ?? 0;
-                $variant->promo_price = array_key_exists('promo_price', $ov) ? $ov['promo_price'] : $variant->promo_price;
+                $variant->promo_price = array_key_exists('promo_price', $ov) ? ($ov['promo_price'] ?: null) : $variant->promo_price;
                 if (! $variant->exists) {
                     $variant->is_default = false;
                     $variant->sku = $this->uniqueSku($product, $combo, $ov['sku'] ?? null);
@@ -71,6 +73,11 @@ class ProductVariantService
                     $pivot[$value->id] = ['attribute_id' => $value->attribute_id];
                 }
                 $variant->attributeValues()->sync($pivot);
+
+                // المخزون لكل متغيّر عبر تسوية مخزنية (إن قُدّمت كمية ووُجد مستودع).
+                if ($warehouse && isset($ov['quantity']) && $ov['quantity'] !== '') {
+                    $this->setVariantStock($variant, $warehouse, (float) $ov['quantity']);
+                }
 
                 $result[$key] = $variant;
             }
@@ -106,6 +113,32 @@ class ProductVariantService
         $delta > 0
             ? $this->inventory->adjustIn($variant, $warehouse, $delta, $unitCost, $opts)
             : $this->inventory->adjustOut($variant, $warehouse, -$delta, $opts);
+    }
+
+    /**
+     * يفهرس صفوف التخصيص بمفتاح التركيبة (من value_ids).
+     *
+     * @param  array<int, array<string, mixed>>  $overrides
+     * @return array<string, array<string, mixed>>
+     */
+    private function indexOverrides(array $overrides): array
+    {
+        $out = [];
+        foreach ($overrides as $row) {
+            $valueIds = array_filter((array) ($row['value_ids'] ?? []));
+            if ($valueIds === []) {
+                continue;
+            }
+            $out[$this->comboKey($valueIds)] = $row;
+        }
+
+        return $out;
+    }
+
+    /** المستودع الافتراضي (النظام أحادي المستودع حاليًا). */
+    private function defaultWarehouse(): ?Warehouse
+    {
+        return Warehouse::where('is_default', true)->first() ?? Warehouse::orderBy('id')->first();
     }
 
     /**

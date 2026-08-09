@@ -123,30 +123,162 @@
                     </div>
                 </div>
 
-                {{-- الوسوم والسمات --}}
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ __('الوسوم') }}</label>
-                        <div class="flex flex-wrap gap-2 max-h-32 overflow-y-auto p-2 border rounded-md">
-                            @php $selTags = old('tag_ids', $product->exists ? $product->tags->pluck('id')->all() : []); @endphp
-                            @forelse ($tags as $tag)
-                                <label class="inline-flex items-center gap-1 text-sm"><input type="checkbox" name="tag_ids[]" value="{{ $tag->id }}" @checked(in_array($tag->id, $selTags)) class="rounded border-gray-300 text-emerald-600" />{{ $tag->name }}</label>
-                            @empty
-                                <span class="text-xs text-gray-400">{{ __('لا توجد وسوم') }}</span>
-                            @endforelse
-                        </div>
+                {{-- الوسوم --}}
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ __('الوسوم') }}</label>
+                    <div class="flex flex-wrap gap-2 max-h-32 overflow-y-auto p-2 border rounded-md">
+                        @php $selTags = old('tag_ids', $product->exists ? $product->tags->pluck('id')->all() : []); @endphp
+                        @forelse ($tags as $tag)
+                            <label class="inline-flex items-center gap-1 text-sm"><input type="checkbox" name="tag_ids[]" value="{{ $tag->id }}" @checked(in_array($tag->id, $selTags)) class="rounded border-gray-300 text-emerald-600" />{{ $tag->name }}</label>
+                        @empty
+                            <span class="text-xs text-gray-400">{{ __('لا توجد وسوم') }}</span>
+                        @endforelse
                     </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ __('السمات المطبّقة') }}</label>
-                        <div class="flex flex-wrap gap-2 max-h-32 overflow-y-auto p-2 border rounded-md">
-                            @php $selAttrs = old('attribute_ids', $product->exists ? $product->attributes->pluck('id')->all() : []); @endphp
-                            @forelse ($attributes as $attr)
-                                <label class="inline-flex items-center gap-1 text-sm"><input type="checkbox" name="attribute_ids[]" value="{{ $attr->id }}" @checked(in_array($attr->id, $selAttrs)) class="rounded border-gray-300 text-emerald-600" />{{ $attr->name }}</label>
-                            @empty
-                                <span class="text-xs text-gray-400">{{ __('لا توجد سمات') }}</span>
-                            @endforelse
+                </div>
+
+                {{-- الخيارات والمتغيّرات (مقاس/لون) --}}
+                @php
+                    $variationAttrs = $attributes->filter(fn ($a) => $a->values->isNotEmpty());
+                    $valueAttr = [];
+                    foreach ($variationAttrs as $a) {
+                        foreach ($a->values as $v) { $valueAttr[$v->id] = $a->id; }
+                    }
+                    $vmSelected = [];
+                    $vmOverrides = [];
+                    foreach ($existingVariants as $ev) {
+                        foreach ($ev['value_ids'] as $vid) {
+                            if (isset($valueAttr[$vid])) { $vmSelected[$valueAttr[$vid]][] = $vid; }
+                        }
+                        $key = collect($ev['value_ids'])->map(fn ($i) => (int) $i)->sort()->values()->implode('-');
+                        $vmOverrides[$key] = [
+                            'sku' => $ev['sku'], 'retail_price' => $ev['retail_price'],
+                            'promo_price' => $ev['promo_price'], 'quantity' => $ev['quantity'], 'is_active' => $ev['is_active'],
+                        ];
+                    }
+                    $vmSelected = array_map(fn ($ids) => array_values(array_unique($ids)), $vmSelected);
+                    $vmConfig = [
+                        'attrs' => $variationAttrs->map(fn ($a) => [
+                            'id' => $a->id, 'name' => $a->name, 'type' => $a->type,
+                            'values' => $a->values->map(fn ($v) => ['id' => $v->id, 'label' => $v->label ?: $v->value, 'color_hex' => $v->color_hex])->values(),
+                        ])->values(),
+                        'selected' => (object) $vmSelected,
+                        'overrides' => (object) $vmOverrides,
+                        'defaultPrice' => old('retail_price', $product->retail_price),
+                    ];
+                @endphp
+                <div class="border rounded-md p-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ __('الخيارات والمتغيّرات') }}</label>
+                    <p class="text-xs text-gray-400 mb-3">{{ __('اختر قيم المقاس/اللون، وستُولَّد المتغيّرات تلقائيًا — لكل متغيّر سعر ومخزون مستقلّان. اترك السعر فارغًا ليرث سعر المنتج، وSKU فارغًا ليُولَّد تلقائيًا.') }}</p>
+
+                    @if ($variationAttrs->isEmpty())
+                        <p class="text-xs text-gray-400">{{ __('لا توجد سمات ذات قيم. أضف سمة (مثل «المقاس») وقيمها من') }}
+                            <a href="{{ route('admin.attributes.index') }}" class="text-emerald-600 hover:underline">{{ __('إدارة السمات') }}</a>.
+                        </p>
+                    @else
+                        <div x-data="productVariants(@js($vmConfig))" class="space-y-4">
+                            {{-- اختيار القيم لكل محور --}}
+                            <template x-for="attr in attrs" :key="attr.id">
+                                <div>
+                                    <div class="text-sm font-medium text-gray-600 mb-1.5" x-text="attr.name"></div>
+                                    <div class="flex flex-wrap gap-2">
+                                        <template x-for="val in attr.values" :key="val.id">
+                                            <label class="inline-flex items-center gap-1.5 text-sm border rounded-lg px-2.5 py-1 cursor-pointer"
+                                                   :class="isSelected(attr.id, val.id) ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200'">
+                                                <input type="checkbox" class="sr-only" :checked="isSelected(attr.id, val.id)" @change="toggleValue(attr.id, val.id)">
+                                                <span x-show="val.color_hex" class="inline-block h-3.5 w-3.5 rounded-full border border-gray-300" :style="`background:${val.color_hex}`"></span>
+                                                <span x-text="val.label"></span>
+                                            </label>
+                                        </template>
+                                    </div>
+                                </div>
+                            </template>
+
+                            {{-- محاور مخفية للإرسال --}}
+                            <template x-for="attr in attrs" :key="'ax'+attr.id">
+                                <template x-for="vid in (selected[attr.id] || [])" :key="'ax'+attr.id+'-'+vid">
+                                    <input type="hidden" :name="`axes[${attr.id}][]`" :value="vid">
+                                </template>
+                            </template>
+
+                            {{-- مصفوفة المتغيّرات --}}
+                            <div x-show="combos.length" x-cloak class="overflow-x-auto">
+                                <table class="min-w-full text-sm">
+                                    <thead>
+                                        <tr class="text-gray-500 text-xs text-start">
+                                            <th class="py-1.5 pe-3 text-start">{{ __('المتغيّر') }}</th>
+                                            <th class="py-1.5 px-2 text-start">SKU</th>
+                                            <th class="py-1.5 px-2 text-start">{{ __('السعر') }}</th>
+                                            <th class="py-1.5 px-2 text-start">{{ __('سعر الخصم') }}</th>
+                                            <th class="py-1.5 px-2 text-start">{{ __('الكمية') }}</th>
+                                            <th class="py-1.5 px-2 text-center">{{ __('مفعّل') }}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-gray-100">
+                                        <template x-for="(combo, i) in combos" :key="combo.key">
+                                            <tr>
+                                                <td class="py-1.5 pe-3 font-medium text-gray-700 whitespace-nowrap" x-text="combo.label"></td>
+                                                <td class="py-1.5 px-2">
+                                                    <input type="text" x-model="row(combo.key).sku" :name="`variants[${i}][sku]`" placeholder="{{ __('تلقائي') }}" class="w-28 rounded-md border-gray-300 text-sm">
+                                                    <template x-for="vid in combo.valueIds" :key="vid">
+                                                        <input type="hidden" :name="`variants[${i}][value_ids][]`" :value="vid">
+                                                    </template>
+                                                </td>
+                                                <td class="py-1.5 px-2"><input type="number" step="0.01" min="0" x-model="row(combo.key).retail_price" :name="`variants[${i}][retail_price]`" class="w-24 rounded-md border-gray-300 text-sm"></td>
+                                                <td class="py-1.5 px-2"><input type="number" step="0.01" min="0" x-model="row(combo.key).promo_price" :name="`variants[${i}][promo_price]`" class="w-24 rounded-md border-gray-300 text-sm"></td>
+                                                <td class="py-1.5 px-2"><input type="number" step="1" min="0" x-model="row(combo.key).quantity" :name="`variants[${i}][quantity]`" class="w-20 rounded-md border-gray-300 text-sm"></td>
+                                                <td class="py-1.5 px-2 text-center">
+                                                    <input type="hidden" :name="`variants[${i}][is_active]`" value="0">
+                                                    <input type="checkbox" value="1" x-model="row(combo.key).is_active" :name="`variants[${i}][is_active]`" class="rounded border-gray-300 text-emerald-600">
+                                                </td>
+                                            </tr>
+                                        </template>
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
-                    </div>
+
+                        <script>
+                            function productVariants(cfg) {
+                                return {
+                                    attrs: cfg.attrs,
+                                    selected: cfg.selected,
+                                    overrides: cfg.overrides,
+                                    isSelected(a, v) { return (this.selected[a] || []).includes(v); },
+                                    toggleValue(a, v) {
+                                        const arr = this.selected[a] || (this.selected[a] = []);
+                                        const i = arr.indexOf(v);
+                                        i >= 0 ? arr.splice(i, 1) : arr.push(v);
+                                    },
+                                    get combos() {
+                                        const axes = this.attrs
+                                            .map(at => ({ vals: (this.selected[at.id] || []).map(id => at.values.find(x => x.id === id)).filter(Boolean) }))
+                                            .filter(x => x.vals.length);
+                                        if (!axes.length) return [];
+                                        let rows = [[]];
+                                        axes.forEach(({ vals }) => {
+                                            const next = [];
+                                            rows.forEach(r => vals.forEach(v => next.push([...r, v])));
+                                            rows = next;
+                                        });
+                                        return rows.map(cells => {
+                                            const valueIds = cells.map(c => c.id);
+                                            return {
+                                                key: [...valueIds].sort((a, b) => a - b).join('-'),
+                                                valueIds,
+                                                label: cells.map(c => c.label).join(' / '),
+                                            };
+                                        });
+                                    },
+                                    row(key) {
+                                        if (!this.overrides[key]) {
+                                            this.overrides[key] = { sku: '', retail_price: cfg.defaultPrice ?? '', promo_price: '', quantity: '', is_active: true };
+                                        }
+                                        return this.overrides[key];
+                                    },
+                                };
+                            }
+                        </script>
+                    @endif
                 </div>
 
                 {{-- SEO --}}

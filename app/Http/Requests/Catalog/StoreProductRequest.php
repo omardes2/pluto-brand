@@ -53,6 +53,19 @@ class StoreProductRequest extends FormRequest
             'tag_ids.*' => ['integer', 'exists:product_tags,id'],
             'attribute_ids' => ['nullable', 'array'],
             'attribute_ids.*' => ['integer', 'exists:product_attributes,id'],
+
+            // محاور الخيارات ومصفوفة المتغيّرات (مقاس/لون).
+            'axes' => ['nullable', 'array'],
+            'axes.*' => ['nullable', 'array'],
+            'axes.*.*' => ['integer', 'exists:product_attribute_values,id'],
+            'variants' => ['nullable', 'array'],
+            'variants.*.value_ids' => ['required_with:variants', 'array', 'min:1'],
+            'variants.*.value_ids.*' => ['integer', 'exists:product_attribute_values,id'],
+            'variants.*.sku' => ['nullable', 'string', 'max:60'],
+            'variants.*.retail_price' => ['nullable', 'numeric', 'min:0'],
+            'variants.*.promo_price' => ['nullable', 'numeric', 'min:0'],
+            'variants.*.quantity' => ['nullable', 'numeric', 'min:0'],
+            'variants.*.is_active' => ['nullable', 'boolean'],
         ];
     }
 }
