@@ -4,19 +4,23 @@ namespace App\Modules\Catalog\Services;
 
 use App\Modules\Catalog\Models\Product;
 use App\Modules\Catalog\Models\ProductImage;
+use App\Support\ImageWebpConverter;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 /**
- * إدارة وسائط المنتج: رفع إلى قرص public، وضمان صورة أساسية واحدة.
+ * إدارة وسائط المنتج: رفع إلى قرص public (بصيغة WebP)، وضمان صورة أساسية واحدة.
  */
 class ProductImageService
 {
+    public function __construct(private readonly ImageWebpConverter $webp = new ImageWebpConverter) {}
+
     public function store(Product $product, UploadedFile $file, array $meta = []): ProductImage
     {
         return DB::transaction(function () use ($product, $file, $meta) {
-            $path = $file->store('products', 'public');
+            // تحويل الصورة إلى WebP لتصغير الحجم وتسريع الموقع (مع جودة جيّدة).
+            $path = $this->webp->storeAsWebp($file, 'products');
 
             // أول صورة للمنتج تصبح أساسية تلقائيًا.
             $makePrimary = ($meta['is_primary'] ?? false) || ! $product->images()->exists();
