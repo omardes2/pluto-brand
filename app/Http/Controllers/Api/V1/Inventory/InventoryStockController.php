@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\Inventory\InventoryStockResource;
 use App\Modules\Catalog\Models\ProductVariant;
 use App\Modules\Foundation\Models\Warehouse;
+use App\Modules\Foundation\Services\Settings;
 use App\Modules\Inventory\Models\InventoryStock;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -27,7 +28,9 @@ class InventoryStockController extends Controller
         }
 
         if ($request->boolean('low_stock')) {
-            $query->whereNotNull('reorder_level')->whereColumn('on_hand', '<=', 'reorder_level');
+            // الحدّ الخاص للصنف إن وُجد، وإلا الحدّ الافتراضي العام من الإعدادات.
+            $threshold = max(0.0, (float) Settings::get('inventory.low_stock_threshold', 5));
+            $query->whereRaw('on_hand <= COALESCE(reorder_level, ?)', [$threshold]);
         }
 
         $this->applySorting($query, $request, ['on_hand', 'updated_at'], 'updated_at', 'desc');

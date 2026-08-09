@@ -46,6 +46,7 @@ class WarehouseController extends Controller
         return view('admin.inventory.low_stock', [
             'warehouse' => $warehouse,
             'rows' => $this->service->lowStock($warehouse),
+            'threshold' => $this->service->defaultThreshold(),
         ]);
     }
 

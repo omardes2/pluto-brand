@@ -9,6 +9,7 @@ return [
     'tab_whatsapp' => 'WhatsApp',
     'tab_delivery' => 'Delivery',
     'tab_sales' => 'Sales',
+    'tab_inventory' => 'Inventory',
     'tab_seo' => 'SEO',
     'tab_system' => 'System',
 
@@ -33,6 +34,8 @@ return [
 
     'default_fee' => 'Default delivery fee',
     'free_threshold' => 'Free-shipping threshold',
+    'low_stock_threshold' => 'Low-stock alert threshold (default)',
+    'low_stock_threshold_hint' => 'Alerts you when an item’s on-hand quantity reaches this number or below. Applied to every item without its own threshold. Zero disables the global alert.',
 
     'online_treasury' => 'Online-orders collection cashbox',
     'online_treasury_none' => '— Default cash cashbox —',

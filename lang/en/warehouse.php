@@ -25,6 +25,9 @@ return [
     'reorder_level' => 'Reorder level',
     'reorder_qty' => 'Reorder qty',
     'no_low_stock' => 'No items below threshold.',
+    'low_stock_threshold_note' => 'Shows every item with :n units or fewer on hand (default threshold), or below its own threshold when set.',
+    'change_threshold' => 'Change threshold',
+    'default_threshold_tag' => 'default',
 
     'count' => 'Count',
     'new_count' => 'New count',

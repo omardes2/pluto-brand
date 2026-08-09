@@ -28,6 +28,9 @@ return [
     'reorder_level' => 'حدّ إعادة الطلب',
     'reorder_qty' => 'كمية إعادة الطلب',
     'no_low_stock' => 'لا أصناف تحت الحدّ.',
+    'low_stock_threshold_note' => 'يظهر هنا كل صنف متوفّره :n قطعة أو أقل (الحدّ الافتراضي)، أو أقلّ من حدّه الخاص إن وُجد.',
+    'change_threshold' => 'تغيير الحدّ',
+    'default_threshold_tag' => 'افتراضي',
 
     // الجرد
     'count' => 'جرد',

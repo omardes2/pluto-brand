@@ -1,6 +1,10 @@
 <x-app-layout>
     <x-slot name="header"><h2 class="font-semibold text-xl text-gray-800">{{ __('warehouse.low_stock_title') }}</h2></x-slot>
     <div class="py-6 max-w-7xl mx-auto sm:px-6 lg:px-8">
+        <p class="text-sm text-gray-500 mb-3">
+            {{ __('warehouse.low_stock_threshold_note', ['n' => rtrim(rtrim(number_format((float) ($threshold ?? 0), 2, '.', ''), '0'), '.') ?: '0']) }}
+            <a href="{{ route('admin.settings.edit') }}" class="text-emerald-600 hover:underline">{{ __('warehouse.change_threshold') }}</a>
+        </p>
         <div class="bg-white shadow-sm sm:rounded-lg p-4 overflow-x-auto">
             <table class="min-w-full text-sm text-right">
                 <thead class="text-gray-500 border-b"><tr>
@@ -15,7 +19,12 @@
                             <td class="py-2 px-3">{{ $s->variant?->product?->name ?? $s->variant?->sku }}
                                 <span class="text-xs text-gray-400">{{ $s->variant?->sku }}</span></td>
                             <td class="py-2 px-3 font-bold text-rose-600">{{ (float) $s->on_hand }}</td>
-                            <td class="py-2 px-3">{{ (float) $s->reorder_level }}</td>
+                            <td class="py-2 px-3">
+                                {{ (float) ($s->reorder_level ?? ($threshold ?? 0)) }}
+                                @if ($s->reorder_level === null)
+                                    <span class="text-xs text-gray-400">({{ __('warehouse.default_threshold_tag') }})</span>
+                                @endif
+                            </td>
                             <td class="py-2 px-3">{{ $s->reorder_qty !== null ? (float) $s->reorder_qty : '—' }}</td>
                         </tr>
                     @empty

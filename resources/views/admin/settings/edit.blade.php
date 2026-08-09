@@ -6,7 +6,7 @@
 
             {{-- تبويبات --}}
             <div class="flex flex-wrap gap-1 border-b mb-6 -mx-2 px-2 overflow-x-auto">
-                @foreach (['general' => 'settings.tab_general', 'openai' => 'settings.tab_openai', 'email' => 'settings.tab_email', 'whatsapp' => 'settings.tab_whatsapp', 'delivery' => 'settings.tab_delivery', 'sales' => 'settings.tab_sales', 'seo' => 'settings.tab_seo', 'system' => 'settings.tab_system'] as $key => $label)
+                @foreach (['general' => 'settings.tab_general', 'openai' => 'settings.tab_openai', 'email' => 'settings.tab_email', 'whatsapp' => 'settings.tab_whatsapp', 'delivery' => 'settings.tab_delivery', 'sales' => 'settings.tab_sales', 'inventory' => 'settings.tab_inventory', 'seo' => 'settings.tab_seo', 'system' => 'settings.tab_system'] as $key => $label)
                     <button type="button" @click="tab = '{{ $key }}'" :class="tab === '{{ $key }}' ? 'border-emerald-600 text-emerald-600' : 'border-transparent text-gray-500'" class="px-3 py-2 text-sm border-b-2 whitespace-nowrap">{{ __($label) }}</button>
                 @endforeach
             </div>
@@ -85,6 +85,15 @@
                             @endforeach
                         </select>
                         <p class="text-xs text-gray-500 mt-1">{{ __('settings.online_treasury_hint') }}</p>
+                    </x-admin.field>
+                </div>
+
+                {{-- المخزون --}}
+                <div x-show="tab === 'inventory'" x-cloak class="space-y-4">
+                    <x-admin.field :label="__('settings.low_stock_threshold')" name="inventory_low_stock_threshold" :hint="__('settings.low_stock_threshold_hint')">
+                        <input type="number" min="0" step="1" name="inventory_low_stock_threshold"
+                               value="{{ old('inventory_low_stock_threshold', $values['inventory_low_stock_threshold'] ?? 5) }}"
+                               class="w-full sm:w-48 rounded-md border-gray-300" />
                     </x-admin.field>
                 </div>
 

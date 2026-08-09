@@ -9,6 +9,7 @@ return [
     'tab_whatsapp' => 'واتساب',
     'tab_delivery' => 'التوصيل',
     'tab_sales' => 'المبيعات',
+    'tab_inventory' => 'المخزون',
     'tab_seo' => 'SEO',
     'tab_system' => 'النظام',
 
@@ -33,6 +34,8 @@ return [
 
     'default_fee' => 'رسوم التوصيل الافتراضية',
     'free_threshold' => 'عتبة الشحن المجاني',
+    'low_stock_threshold' => 'حدّ تنبيه نقص المخزون (افتراضي)',
+    'low_stock_threshold_hint' => 'يُنبّهك عندما يصل المتوفّر من أي صنف لهذا الرقم أو أقل. يُطبَّق على كل صنف ليس له حدّ خاص. صفر = تعطيل التنبيه العام.',
 
     'online_treasury' => 'صندوق تحصيل طلبات الموقع (الأون لاين)',
     'online_treasury_none' => '— الصندوق النقدي الافتراضي —',
