@@ -43,6 +43,40 @@ class ProductImageApiTest extends TestCase
         Storage::disk('public')->assertExists($path);
     }
 
+    public function test_uploaded_image_is_converted_to_webp(): void
+    {
+        Sanctum::actingAs($this->admin());
+        $product = Product::factory()->create();
+
+        $this->postJson("/api/v1/products/{$product->uuid}/images", [
+            'image' => UploadedFile::fake()->image('photo.jpg', 1200, 800),
+        ])->assertCreated();
+
+        $path = ProductImage::first()->path;
+        $this->assertStringEndsWith('.webp', $path);
+        Storage::disk('public')->assertExists($path);
+
+        // المحتوى المخزَّن ملف WebP فعليًا (RIFF....WEBP).
+        $binary = Storage::disk('public')->get($path);
+        $this->assertSame('RIFF', substr($binary, 0, 4));
+        $this->assertSame('WEBP', substr($binary, 8, 4));
+    }
+
+    public function test_large_image_is_downscaled(): void
+    {
+        Sanctum::actingAs($this->admin());
+        $product = Product::factory()->create();
+
+        $this->postJson("/api/v1/products/{$product->uuid}/images", [
+            'image' => UploadedFile::fake()->image('big.jpg', 2400, 1800),
+        ])->assertCreated();
+
+        $binary = Storage::disk('public')->get(ProductImage::first()->path);
+        $img = imagecreatefromstring($binary);
+        $this->assertLessThanOrEqual(1600, imagesx($img));
+        $this->assertLessThanOrEqual(1600, imagesy($img));
+    }
+
     public function test_only_one_primary_image(): void
     {
         Sanctum::actingAs($this->admin());
