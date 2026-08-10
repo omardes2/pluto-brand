@@ -108,6 +108,62 @@ class PosReportServiceTest extends TestCase
         $this->assertEquals(50.0, $data['totals']['profit']);
     }
 
+    public function test_items_sold_falls_back_to_cost_price_when_wac_and_snapshot_zero(): void
+    {
+        // متغيّر أُدخل مخزونه بلا تكلفة (WAC = 0) لكن له سعر شراء 36 (سيناريو المصفوفة قديمًا).
+        $variant = Product::factory()->create(['cost_price' => 36])->defaultVariant;
+        $variant->update(['cost_price' => 36, 'wholesale_price' => 0]);
+        app(InventoryService::class)->adjustIn($variant, $this->warehouse, 10, null); // WAC يبقى 0
+
+        $shift = $this->openShift();
+        app(PosSaleService::class)->sell($shift->fresh(), [
+            'items' => [['variant_id' => $variant->id, 'qty' => 1, 'unit_price' => 80]],
+            'payment_method' => 'cash',
+        ]);
+
+        $today = now()->toDateString();
+        $data = app(PosReportService::class)->itemsSold($today, $today);
+        $row = collect($data['rows'])->firstWhere('sku', $variant->sku);
+
+        $this->assertNotNull($row);
+        $this->assertEqualsWithDelta(36.0, $row['cost'], 0.01);   // تراجُع لسعر الشراء
+        $this->assertEqualsWithDelta(44.0, $row['profit'], 0.01); // 80 − 36
+    }
+
+    public function test_shift_detail_subtracts_line_discount_from_revenue(): void
+    {
+        $shift = $this->openShift();
+        app(PosSaleService::class)->sell($shift->fresh(), [
+            'items' => [['variant_id' => $this->variant->id, 'qty' => 1, 'unit_price' => 45, 'discount' => 20]],
+            'payment_method' => 'cash',
+        ]);
+
+        $detail = app(PosReportService::class)->shiftDetail($shift->fresh());
+
+        $this->assertEqualsWithDelta(25.0, $detail['items'][0]['revenue'], 0.01); // 45 − 20 خصم
+        $this->assertEqualsWithDelta(25.0, $detail['totals']['revenue'], 0.01);
+        $this->assertEqualsWithDelta(10.0, $detail['totals']['cost'], 0.01);      // 1 × 10 WAC
+        $this->assertEqualsWithDelta(15.0, $detail['totals']['profit'], 0.01);    // 25 − 10
+    }
+
+    public function test_shift_detail_subtracts_refunds_from_net_sales_and_profit(): void
+    {
+        $shift = $this->openShift();
+        app(PosSaleService::class)->sell($shift->fresh(), [
+            'items' => [['variant_id' => $this->variant->id, 'qty' => 5, 'unit_price' => 20]],
+            'payment_method' => 'cash',
+        ]);
+        // استرداد نقدي 60 من الدرج (إرجاع)
+        app(PosShiftService::class)->recordRefund($shift->fresh(), null, 60, 'إرجاع');
+
+        $detail = app(PosReportService::class)->shiftDetail($shift->fresh());
+
+        $this->assertEqualsWithDelta(100.0, $detail['totals']['revenue'], 0.01);   // 5 × 20
+        $this->assertEqualsWithDelta(60.0, $detail['totals']['returns'], 0.01);
+        $this->assertEqualsWithDelta(40.0, $detail['totals']['net_sales'], 0.01);  // 100 − 60
+        $this->assertEqualsWithDelta(-10.0, $detail['totals']['profit'], 0.01);    // 40 − 50 تكلفة
+    }
+
     public function test_cashier_sales_group_by_cashier_with_payment_split(): void
     {
         $shift = $this->openShift();

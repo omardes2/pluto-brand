@@ -59,6 +59,9 @@ class ProductVariantService
                 $variant->is_active = array_key_exists('is_active', $ov) ? (bool) $ov['is_active'] : true;
                 $variant->retail_price = $ov['retail_price'] ?? $variant->retail_price ?? $product->retail_price ?? 0;
                 $variant->promo_price = array_key_exists('promo_price', $ov) ? ($ov['promo_price'] ?: null) : $variant->promo_price;
+                // يرث المتغيّر سعر شراء المنتج (يعكس متوسط التكلفة WAC وتكلفة البيع في التقارير).
+                // coalesce إلى 0 لأن العمود غير قابل للـnull (منتج بلا سعر شراء = 0).
+                $variant->cost_price = $ov['cost_price'] ?? $variant->cost_price ?? $product->cost_price ?? 0;
                 if (! $variant->exists) {
                     $variant->is_default = false;
                     $variant->sku = $this->uniqueSku($product, $combo, $ov['sku'] ?? null);
@@ -74,9 +77,12 @@ class ProductVariantService
                 }
                 $variant->attributeValues()->sync($pivot);
 
-                // المخزون لكل متغيّر عبر تسوية مخزنية (إن قُدّمت كمية ووُجد مستودع).
+                // المخزون لكل متغيّر عبر تسوية مخزنية (إن قُدّمت كمية ووُجد مستودع) —
+                // بتكلفة الوحدة = سعر الشراء كي يُحتسب متوسط التكلفة (WAC) والأرباح بصحّة.
                 if ($warehouse && isset($ov['quantity']) && $ov['quantity'] !== '') {
-                    $this->setVariantStock($variant, $warehouse, (float) $ov['quantity']);
+                    $unitCost = $variant->cost_price !== null && (float) $variant->cost_price > 0
+                        ? (float) $variant->cost_price : null;
+                    $this->setVariantStock($variant, $warehouse, (float) $ov['quantity'], $unitCost);
                 }
 
                 $result[$key] = $variant;
@@ -107,6 +113,12 @@ class ProductVariantService
         $delta = round($target - $current, 2);
         if (abs($delta) < 0.001) {
             return;
+        }
+
+        // عند غياب تكلفة صريحة، استخدم سعر شراء الصنف/المنتج حتى يعكس WAC والتقارير الأرباح.
+        if ($unitCost === null) {
+            $cp = $variant->cost_price ?? $variant->product?->cost_price;
+            $unitCost = ($cp !== null && (float) $cp > 0) ? (float) $cp : null;
         }
 
         $opts = ['reason' => 'variant_matrix:'.$variant->sku];
