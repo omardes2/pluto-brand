@@ -186,10 +186,13 @@
         </template>
       </div>
       <div class="grid">
-        <template x-for="p in products" :key="p.variant_id">
-          <div class="card" :class="p.stock<=0 && 'out'" x-on:click="add(p)">
+        <template x-for="p in products" :key="p.product_id">
+          <div class="card" x-on:click="pick(p)">
             <span class="tag" x-show="p.has_promo">{{ __('عرض') }}</span>
-            <div class="thumb">🛒</div>
+            <div class="thumb">
+              <template x-if="p.image"><img :src="p.image" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:10px"></template>
+              <template x-if="!p.image"><span>🛒</span></template>
+            </div>
             <div class="nm" x-text="p.name"></div>
             <div class="foot">
               <div>
@@ -198,6 +201,7 @@
               </div>
               <span class="stk" :class="p.stock<=8 && 'low'" x-text="p.stock"></span>
             </div>
+            <div x-show="p.variants.length>1" style="font-size:11px;color:var(--faint);margin-top:3px" x-text="p.axes.map(a=>a.name).join(' · ')"></div>
           </div>
         </template>
         <div x-show="products.length===0" style="grid-column:1/-1;color:var(--faint);text-align:center;padding:40px">{{ __('لا توجد نتائج') }}</div>
@@ -321,6 +325,47 @@
         <button class="r-print" x-on:click="resetCustomer(); showCustomer=false">{{ __('عميل نقدي') }}</button>
         <button class="r-new" x-on:click="showCustomer=false">{{ __('إغلاق') }}</button>
       </div>
+    </div>
+  </div>
+
+  {{-- محدّد اللون/المقاس --}}
+  <div class="overlay" x-show="sel.open" x-cloak style="display:none" :style="sel.open && 'display:flex'" x-on:click.self="sel.open=false">
+    <div class="receipt" style="width:470px;max-width:94vw">
+      <div class="r-head" style="background:var(--chrome)">
+        <div class="ok">🛍</div><b x-text="sel.product?.name"></b>
+        <span class="tnum" x-text="money(sel.product?.price||0)"></span>
+      </div>
+      <div style="padding:16px 20px;display:flex;flex-direction:column;gap:16px">
+        {{-- اللون (المحور الأول) --}}
+        <template x-if="selColorAxis()">
+          <div>
+            <div style="font-size:12px;color:var(--muted);font-weight:700;margin-bottom:8px" x-text="selColorAxis().name"></div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px">
+              <template x-for="cv in selColorValues()" :key="cv.value_id">
+                <button type="button" x-on:click="sel.colorVal=cv.value_id"
+                  :style="'display:flex;align-items:center;gap:6px;border:1.5px solid '+(sel.colorVal===cv.value_id?'var(--accent)':'var(--border)')+';border-radius:999px;padding:6px 12px;font-weight:700;font-size:13px;background:'+(sel.colorVal===cv.value_id?'var(--accent-soft)':'var(--surface)')+';cursor:pointer;color:inherit'">
+                  <span x-show="cv.color_hex" :style="'width:14px;height:14px;border-radius:50%;border:1px solid rgba(0,0,0,.15);background:'+(cv.color_hex||'#ccc')"></span>
+                  <span x-text="cv.label"></span>
+                </button>
+              </template>
+            </div>
+          </div>
+        </template>
+        {{-- المقاسات (المحور الثاني) أو المتغيّرات مباشرة — الرقم الصغير = المتوفّر --}}
+        <div>
+          <div style="font-size:12px;color:var(--muted);font-weight:700;margin-bottom:8px" x-text="selSizeAxis() ? selSizeAxis().name : '{{ __('الخيارات') }}'"></div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+            <template x-for="cell in selCells()" :key="cell.variant_id">
+              <button type="button" :disabled="cell.stock<=0" x-on:click="addVariant(cell); sel.open=false"
+                :style="'border:1.5px solid '+(cell.stock>0?'var(--accent)':'var(--border)')+';border-radius:10px;padding:8px 0;text-align:center;background:var(--surface);cursor:'+(cell.stock>0?'pointer':'not-allowed')+';opacity:'+(cell.stock>0?'1':'.4')+';color:inherit'">
+                <div style="font-weight:800;font-size:15px" x-text="cell.cellLabel"></div>
+                <div style="font-size:10px;color:var(--muted)" x-text="cell.stock"></div>
+              </button>
+            </template>
+          </div>
+        </div>
+      </div>
+      <div class="r-actions"><button class="r-new" x-on:click="sel.open=false">{{ __('إغلاق') }}</button></div>
     </div>
   </div>
 
@@ -449,6 +494,7 @@ document.addEventListener('alpine:init', () => {
     defaultCustomerName: @json($defaultCustomer),
     showCustomer: false, cust: { q: '', results: [] },
     receipt: null, toastMsg: '',
+    sel: { open:false, product:null, colorVal:null },
     urls: { products: '{{ route('admin.pos.products') }}', barcode: '{{ route('admin.pos.barcode') }}', sell: '{{ route('admin.pos.sell') }}', receiptBase: '{{ url('admin/pos/receipt') }}', expense: '{{ route('admin.pos.shift.expense') }}', returnLookup: '{{ route('admin.pos.return.lookup') }}', returnPost: '{{ route('admin.pos.return') }}', returnNoInvoice: '{{ route('admin.pos.return.no_invoice') }}', customers: '{{ route('admin.pos.customers') }}' },
     csrf: document.querySelector('meta[name=csrf-token]').content,
 
@@ -499,9 +545,42 @@ document.addEventListener('alpine:init', () => {
     },
     setCat(id){ this.cat=id; this.loadProducts(); },
 
-    add(p){ if(p.stock<=0){ this.toast('{{ __('الصنف غير متوفّر في المخزون') }}'); return; }
-      const ex=this.cart.find(x=>x.variant_id===p.variant_id);
-      if(ex) ex.qty++; else this.cart.push({variant_id:p.variant_id,name:p.name,price:p.price,qty:1}); },
+    // اختيار منتج من الشبكة: البسيط (متغيّر واحد) يُضاف مباشرة؛ متعدّد الألوان/المقاسات يفتح المحدّد.
+    pick(p){
+      if(p.stock<=0){ this.toast('{{ __('الصنف غير متوفّر في المخزون') }}'); return; }
+      if(!p.variants || p.variants.length<=1){ this.addVariant(p.variants ? p.variants[0] : p); return; }
+      this.openSelector(p);
+    },
+    openSelector(p){
+      this.sel = { open:true, product:p, colorVal:null };
+      const cvals = this.selColorValues();
+      if(cvals.length){ this.sel.colorVal = (cvals.find(c=>this.colorHasStock(c.value_id)) || cvals[0]).value_id; }
+    },
+    selColorAxis(){ const a=this.sel.product?.axes||[]; return a.length>1 ? a[0] : null; },
+    selSizeAxis(){ const a=this.sel.product?.axes||[]; if(a.length>1) return a[1]; if(a.length===1) return a[0]; return null; },
+    selColorValues(){
+      const ax=this.selColorAxis(); if(!ax) return [];
+      const seen={}, out=[];
+      for(const v of this.sel.product.variants){ const val=v.values[ax.id]; if(val && !seen[val.value_id]){ seen[val.value_id]=1; out.push(val); } }
+      return out;
+    },
+    colorHasStock(colorValueId){
+      const ax=this.selColorAxis(); if(!ax) return true;
+      return this.sel.product.variants.some(v=> v.values[ax.id] && v.values[ax.id].value_id===colorValueId && v.stock>0);
+    },
+    selCells(){
+      const p=this.sel.product; if(!p) return [];
+      const colorAx=this.selColorAxis(), sizeAx=this.selSizeAxis();
+      let vs=p.variants;
+      if(colorAx && this.sel.colorVal!=null){ vs=vs.filter(v=> v.values[colorAx.id] && v.values[colorAx.id].value_id===this.sel.colorVal); }
+      return vs.map(v=>({ ...v, cellLabel: sizeAx && v.values[sizeAx.id] ? v.values[sizeAx.id].label : v.name }));
+    },
+    addVariant(v){
+      if(!v) return;
+      if(v.stock<=0){ this.toast('{{ __('الصنف غير متوفّر في المخزون') }}'); return; }
+      const ex=this.cart.find(x=>x.variant_id===v.variant_id);
+      if(ex) ex.qty++; else this.cart.push({variant_id:v.variant_id,name:v.name,price:v.price,qty:1});
+    },
     inc(i){ this.cart[i].qty++; },
     dec(i){ if(--this.cart[i].qty<=0) this.cart.splice(i,1); },
     remove(i){ this.cart.splice(i,1); },
@@ -511,7 +590,7 @@ document.addEventListener('alpine:init', () => {
       const code=this.barcodeInput.trim(); if(!code) return;
       const url=new URL(this.urls.barcode, location.origin); url.searchParams.set('code', code);
       const r=await fetch(url,{headers:{'Accept':'application/json'}});
-      if(r.ok){ this.add((await r.json()).product); this.barcodeInput=''; }
+      if(r.ok){ this.addVariant((await r.json()).product); this.barcodeInput=''; }
       else { this.toast('{{ __('لا يوجد منتج بهذا الباركود') }}'); this.barcodeInput=''; }
     },
 
@@ -536,7 +615,11 @@ document.addEventListener('alpine:init', () => {
       const q=this.ni.q.trim(); if(!q){ this.ni.results=[]; return; }
       const url=new URL(this.urls.products, location.origin); url.searchParams.set('q', q);
       const r=await fetch(url,{headers:{'Accept':'application/json'}});
-      if(r.ok) this.ni.results=(await r.json()).products.slice(0,8);
+      if(r.ok){
+        // الكتالوج يُرجع منتجات مجمّعة — نُسطّحها لمتغيّرات لاختيار مقاس/لون محدّد للإرجاع.
+        const prods=(await r.json()).products;
+        this.ni.results = prods.flatMap(p=>(p.variants||[]).map(v=>({variant_id:v.variant_id,name:v.name,price:v.price}))).slice(0,8);
+      }
     },
     niAdd(p){ if(!this.ni.lines.find(x=>x.variant_id===p.variant_id)) this.ni.lines.push({variant_id:p.variant_id,name:p.name,qty:1,unit_price:p.price,condition:'sellable'}); this.ni.q=''; this.ni.results=[]; },
     get niRefund(){ return this.ni.lines.reduce((s,l)=>s+(l.qty>0?l.qty*l.unit_price:0),0); },

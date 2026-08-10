@@ -17,54 +17,80 @@ class PosCatalogServiceTest extends TestCase
 {
     use RefreshDatabase;
 
+    private Warehouse $warehouse;
+
     protected function setUp(): void
     {
         parent::setUp();
         $this->seed(DatabaseSeeder::class);
+        $this->warehouse = Warehouse::where('is_default', true)->first() ?? Warehouse::orderBy('id')->first();
     }
 
-    public function test_search_excludes_deactivated_variants(): void
+    public function test_search_groups_variants_under_product_and_excludes_deactivated(): void
     {
-        $warehouse = Warehouse::where('is_default', true)->first() ?? Warehouse::orderBy('id')->first();
         $product = Product::factory()->active()->create(['name' => 'خشب', 'retail_price' => 100]);
         $size = ProductAttribute::factory()->create(['name' => 'المقاس', 'type' => 'select']);
         $s = ProductAttributeValue::factory()->create(['attribute_id' => $size->id, 'value' => 'S', 'label' => 'S', 'sort_order' => 0]);
         $m = ProductAttributeValue::factory()->create(['attribute_id' => $size->id, 'value' => 'M', 'label' => 'M', 'sort_order' => 1]);
 
         $svc = app(ProductVariantService::class);
-        // توليد S و M ثم إعادة المزامنة بـ S فقط → يُعطَّل M (لا يُحذف).
         $svc->syncMatrix($product, [$size->id => [$s->id, $m->id]], [
             ['value_ids' => [$s->id], 'retail_price' => 100, 'quantity' => 5],
             ['value_ids' => [$m->id], 'retail_price' => 100, 'quantity' => 5],
         ]);
         $mVariantId = $product->variants()->where('name', 'M')->value('id');
+        // إعادة المزامنة بـ S فقط → يُعطَّل M.
         $svc->syncMatrix($product, [$size->id => [$s->id]], [
             ['value_ids' => [$s->id], 'retail_price' => 100, 'quantity' => 5],
         ]);
-
-        // المتغيّر M أصبح مُعطّلًا لكنه لا يزال موجودًا.
-        $this->assertDatabaseHas('product_variants', ['id' => $mVariantId, 'is_active' => false]);
-
-        $results = app(PosCatalogService::class)->search($warehouse->id);
-        $ids = collect($results)->pluck('variant_id')->all();
-
         $sVariantId = $product->variants()->where('name', 'S')->value('id');
-        $this->assertContains($sVariantId, $ids);        // النشط يظهر
-        $this->assertNotContains($mVariantId, $ids);     // المُعطّل لا يظهر
+
+        $row = collect(app(PosCatalogService::class)->search($this->warehouse->id))->firstWhere('product_id', $product->id);
+
+        $this->assertNotNull($row);                         // المنتج بطاقة واحدة
+        $variantIds = collect($row['variants'])->pluck('variant_id')->all();
+        $this->assertContains($sVariantId, $variantIds);    // النشط ضمن المتغيّرات
+        $this->assertNotContains($mVariantId, $variantIds); // المُعطّل مُستبعَد
     }
 
-    public function test_search_excludes_zero_stock_variants(): void
+    public function test_search_excludes_products_with_no_stock(): void
     {
-        $warehouse = Warehouse::where('is_default', true)->first() ?? Warehouse::orderBy('id')->first();
-
         $inStock = Product::factory()->active()->create(['name' => 'متوفّر']);
-        app(InventoryService::class)->receive($inStock->defaultVariant, $warehouse, 3, 10);
+        app(InventoryService::class)->receive($inStock->defaultVariant, $this->warehouse, 3, 10);
 
         $outOfStock = Product::factory()->active()->create(['name' => 'نافد']); // بلا مخزون
 
-        $ids = collect(app(PosCatalogService::class)->search($warehouse->id))->pluck('variant_id')->all();
+        $ids = collect(app(PosCatalogService::class)->search($this->warehouse->id))->pluck('product_id')->all();
 
-        $this->assertContains($inStock->defaultVariant->id, $ids);       // متوفّر → يظهر
-        $this->assertNotContains($outOfStock->defaultVariant->id, $ids); // نافد → لا يظهر
+        $this->assertContains($inStock->id, $ids);       // متوفّر → يظهر
+        $this->assertNotContains($outOfStock->id, $ids); // نافد → لا يظهر
+    }
+
+    public function test_product_payload_has_color_first_axis_and_variant_values(): void
+    {
+        $product = Product::factory()->active()->create(['name' => 'حذاء']);
+        $color = ProductAttribute::factory()->create(['name' => 'اللون', 'type' => 'color', 'sort_order' => 1]);
+        $black = ProductAttributeValue::factory()->create(['attribute_id' => $color->id, 'value' => 'اسود', 'label' => 'اسود', 'color_hex' => '#000000', 'sort_order' => 0]);
+        $size = ProductAttribute::factory()->create(['name' => 'المقاس', 'type' => 'select', 'sort_order' => 0]);
+        $s40 = ProductAttributeValue::factory()->create(['attribute_id' => $size->id, 'value' => '40', 'label' => '40', 'sort_order' => 0]);
+        $s41 = ProductAttributeValue::factory()->create(['attribute_id' => $size->id, 'value' => '41', 'label' => '41', 'sort_order' => 1]);
+
+        app(ProductVariantService::class)->syncMatrix($product, [$color->id => [$black->id], $size->id => [$s40->id, $s41->id]], [
+            ['value_ids' => [$black->id, $s40->id], 'retail_price' => 120, 'quantity' => 5],
+            ['value_ids' => [$black->id, $s41->id], 'retail_price' => 120, 'quantity' => 3],
+        ]);
+
+        $row = collect(app(PosCatalogService::class)->search($this->warehouse->id))->firstWhere('product_id', $product->id);
+
+        $this->assertNotNull($row);
+        $this->assertCount(2, $row['variants']);
+        // محور اللون أولًا (يُعرض كقائمة علوية).
+        $this->assertSame('اللون', $row['axes'][0]['name']);
+        $this->assertTrue($row['axes'][0]['is_color']);
+        $this->assertSame('المقاس', $row['axes'][1]['name']);
+        // كل متغيّر يحمل قيم محاوره (لبناء المحدّد).
+        $v = $row['variants'][0];
+        $this->assertArrayHasKey($color->id, $v['values']);
+        $this->assertArrayHasKey($size->id, $v['values']);
     }
 }

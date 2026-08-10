@@ -70,9 +70,13 @@ class PosWebTest extends TestCase
         $this->actingAs($this->admin());
         $this->openShiftViaHttp();
 
+        // المنتجات مجمّعة على مستوى المنتج مع متغيّراته (لون/مقاس).
         $this->getJson(route('admin.pos.products'))
             ->assertOk()
-            ->assertJsonStructure(['products' => [['variant_id', 'name', 'price', 'stock']]]);
+            ->assertJsonStructure(['products' => [[
+                'product_id', 'name', 'price', 'stock', 'axes',
+                'variants' => [['variant_id', 'name', 'price', 'stock', 'values']],
+            ]]]);
 
         $this->getJson(route('admin.pos.barcode', ['code' => 'POS-TEST-123']))
             ->assertOk()
