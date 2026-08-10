@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Modules\Catalog\Models\Brand;
 use App\Modules\Catalog\Models\Category;
 use App\Modules\Catalog\Models\Product;
+use App\Modules\Catalog\Models\ProductImage;
 use App\Modules\Foundation\Models\Warehouse;
 use App\Modules\Foundation\Services\Settings;
 use App\Modules\Inventory\Services\InventoryService;
@@ -201,6 +202,26 @@ class StorefrontCatalogTest extends TestCase
             ['variant' => $product->defaultVariant->uuid, 'qty' => 2],
             ['X-Cart-Token' => $token],
         )->assertOk()->assertJsonPath('data.item_count', 1);
+    }
+
+    public function test_cart_item_exposes_name_barcode_and_image(): void
+    {
+        $product = $this->product(['name' => 'قميص كم', 'name_en' => 'Shirt']);
+        $variant = $product->defaultVariant;
+        $variant->update(['barcode' => '26000001']);
+        ProductImage::factory()->primary()->create([
+            'product_id' => $product->id, 'path' => 'products/shirt.webp',
+        ]);
+        $token = (string) Str::uuid();
+
+        $res = $this->postJson('/api/v1/store/cart/items',
+            ['variant' => $variant->uuid, 'qty' => 1],
+            ['X-Cart-Token' => $token],
+        )->assertOk();
+
+        $res->assertJsonPath('data.items.0.name', 'قميص كم');
+        $res->assertJsonPath('data.items.0.barcode', '26000001');
+        $this->assertStringContainsString('products/shirt.webp', (string) $res->json('data.items.0.image'));
     }
 
     public function test_authenticated_user_can_add_storefront_product_to_cart(): void

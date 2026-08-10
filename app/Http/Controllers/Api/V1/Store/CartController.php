@@ -64,7 +64,7 @@ class CartController extends Controller
     private function respond(Request $request): CartResource
     {
         // نسخة حديثة: تفادي 201 التلقائي على GET حين تُنشأ السلة أوّل مرّة (wasRecentlyCreated).
-        $cart = $this->cart($request)->fresh('items.variant');
+        $cart = $this->cart($request)->fresh('items.variant.product.primaryImage');
 
         return new CartResource($cart);
     }
