@@ -35,7 +35,11 @@ class PosCatalogService
                 if ($categoryId) {
                     $p->where('category_id', $categoryId);
                 }
-            });
+            })
+            // إخفاء الأصناف التي لا كمية متوفّرة منها في مستودع الوردية (المتوفّر = on_hand − reserved > 0).
+            ->whereHas('inventoryStocks', fn ($s) => $s
+                ->where('warehouse_id', $warehouseId)
+                ->whereRaw('on_hand - reserved > 0'));
 
         if ($q !== null && $q !== '') {
             $query->where(function ($w) use ($q) {
