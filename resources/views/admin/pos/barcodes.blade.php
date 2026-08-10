@@ -55,14 +55,14 @@
 
         /* منطقة الطباعة — تظهر عند الطباعة فقط */
         #printArea{ display:none; }
-        .label{ width:50mm; height:25mm; padding:1.3mm 1.5mm; display:flex; flex-direction:column; align-items:center; justify-content:center;
+        .label{ width:50mm; height:25mm; padding:1mm 1.5mm; display:flex; flex-direction:column; align-items:center; justify-content:flex-start;
             overflow:hidden; text-align:center; }
-        .label .l-nm{ font-size:2.7mm; font-weight:700; line-height:1.15; max-height:6mm; overflow:hidden;
+        .label .l-nm{ font-size:2.3mm; font-weight:700; line-height:1.3; max-height:6mm; overflow:hidden; padding-top:0.3mm;
             display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; width:100%; }
         .label .l-bc{ width:100%; }
-        .label .l-bc svg{ display:block; width:46mm; height:10.5mm; margin:0.7mm auto 0; }
-        .label .l-num{ font-size:2.7mm; letter-spacing:0.6mm; font-variant-numeric:tabular-nums; margin-top:0.5mm; }
-        .label .l-pr{ font-size:3.6mm; font-weight:800; margin-top:0.5mm; }
+        .label .l-bc svg{ display:block; width:46mm; height:9mm; margin:0.4mm auto 0; }
+        .label .l-num{ font-size:2.4mm; letter-spacing:0.5mm; font-variant-numeric:tabular-nums; margin-top:0.4mm; }
+        .label .l-pr{ font-size:3.3mm; font-weight:800; margin-top:0.4mm; }
 
         @media print{
             html,body{ background:#fff; }
