@@ -60,8 +60,11 @@
     display:flex;flex-direction:column;gap:9px;position:relative;text-align:right;transition:.15s}
   .card:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:var(--shadow)}
   .card.out{opacity:.5;cursor:not-allowed}
-  .thumb{height:74px;border-radius:10px;display:grid;place-items:center;font-size:26px;background:var(--surface-2);border:1px solid var(--border);color:var(--faint)}
-  .card .nm{font-weight:700;font-size:13.5px;line-height:1.35;min-height:36px}
+  .thumb{position:relative;height:96px;border-radius:10px;overflow:hidden;display:grid;place-items:center;font-size:26px;background:var(--surface-2);border:1px solid var(--border);color:var(--faint)}
+  .thumb .nm-ov{position:absolute;inset-inline:0;bottom:0;padding:16px 8px 7px;text-align:right;
+    font-weight:800;font-size:12.5px;line-height:1.3;color:#1a1a1a;text-shadow:0 1px 2px rgba(255,255,255,.9);
+    background:linear-gradient(to top,rgba(255,255,255,.96),rgba(255,255,255,.86) 55%,rgba(255,255,255,0));
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
   .card .foot{display:flex;align-items:baseline;justify-content:space-between;gap:6px}
   .price{font-weight:800;font-size:15px;color:var(--accent-strong)}
   .price .cur{font-size:11px;font-weight:700;color:var(--muted)}
@@ -190,10 +193,10 @@
           <div class="card" x-on:click="pick(p)">
             <span class="tag" x-show="p.has_promo">{{ __('عرض') }}</span>
             <div class="thumb">
-              <template x-if="p.image"><img :src="p.image" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:10px"></template>
+              <template x-if="p.image"><img :src="p.image" alt="" style="width:100%;height:100%;object-fit:cover"></template>
               <template x-if="!p.image"><span>🛒</span></template>
+              <div class="nm-ov" x-text="p.name"></div>
             </div>
-            <div class="nm" x-text="p.name"></div>
             <div class="foot">
               <div>
                 <span class="price tnum"><span x-text="p.price.toFixed(2)"></span><span class="cur"> ₪</span></span>
