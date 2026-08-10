@@ -161,6 +161,7 @@
     <div class="meta"><span class="dot"></span> {{ __('فاتورة') }} <b x-text="(active+1)"></b> / <span x-text="tickets.length"></span></div>
     <div class="spacer"></div>
     <button class="topbtn" x-on:click="addTicket()">＋ {{ __('فاتورة جديدة') }}</button>
+    <a class="topbtn" href="{{ route('admin.pos.barcodes') }}" target="_blank" rel="noopener">🏷 {{ __('طباعة باركود') }}</a>
     <button class="topbtn" x-on:click="returnMode()">↩ {{ __('إرجاع / تبديل') }}</button>
     <button class="topbtn" x-on:click="openExpense()">🧾 {{ __('مصروف') }}</button>
     <a class="topbtn" href="{{ route('admin.pos.shift.close_form') }}">{{ __('إغلاق الوردية') }} ({{ $shift->number }})</a>
