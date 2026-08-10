@@ -109,21 +109,34 @@ class PosCatalogService
                             ->where('barcode', 'like', "%{$q}%")->orWhere('sku', 'like', "%{$q}%"));
                 });
             })
-            ->with(['defaultVariant', 'category:id,name'])
+            ->with([
+                'defaultVariant',
+                'category:id,name',
+                'variants' => fn ($v) => $v->where('is_active', true)->select('id', 'product_id'),
+            ])
             ->orderBy('name')
             ->limit($limit)
             ->get();
 
+        // إجمالي المتوفّر لكل منتج = مجموع (on_hand − reserved) لمتغيّراته النشطة عبر كل المستودعات.
+        $variantIds = $products->flatMap(fn (Product $p) => $p->variants->pluck('id'))->all();
+        $available = InventoryStock::whereIn('variant_id', $variantIds)
+            ->selectRaw('variant_id, SUM(on_hand - reserved) as avail')
+            ->groupBy('variant_id')
+            ->pluck('avail', 'variant_id');
+
         return $products
-            ->map(function (Product $p) {
+            ->map(function (Product $p) use ($available) {
                 $dv = $p->defaultVariant;
                 $code = $p->barcode ?: ($dv?->barcode ?: $dv?->sku);
+                $stock = $p->variants->sum(fn (ProductVariant $v) => (float) ($available[$v->id] ?? 0));
 
                 return [
                     'product_id' => $p->id,
                     'product' => $p->name,
                     'barcode' => (string) $code,
                     'price' => $dv ? round($this->sellingPrice($dv), 2) : 0.0,
+                    'stock' => round($stock, 2),
                     'category' => $p->category?->name,
                 ];
             })

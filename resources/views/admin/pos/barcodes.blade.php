@@ -45,6 +45,11 @@
         td.num{ font-variant-numeric:tabular-nums; letter-spacing:1px; color:#374151; white-space:nowrap; }
         td.svgbox svg{ display:block; height:34px; width:auto; max-width:230px; }
         td.pr{ font-weight:800; color:var(--brand); white-space:nowrap; }
+        td.stk{ text-align:center; }
+        td.stk .badge{ display:inline-block; min-width:34px; font-weight:700; font-size:12.5px; font-variant-numeric:tabular-nums;
+            color:#374151; background:#f3f4f6; border:1px solid var(--line); border-radius:6px; padding:2px 8px; }
+        td.stk .badge.low{ color:#b45309; background:#fffbeb; border-color:#fde68a; }
+        td.stk .badge.out{ color:#b91c1c; background:#fef2f2; border-color:#fecaca; }
         .qty{ width:60px; font-family:inherit; font-size:13px; border:1px solid var(--line); border-radius:7px; padding:6px; text-align:center; }
         .empty{ text-align:center; color:var(--muted); padding:60px 20px; }
 
@@ -106,7 +111,8 @@
                             <th style="width:42px"><input type="checkbox" class="pick" onchange="selectAll(this.checked)" title="{{ __('تحديد الكل') }}"></th>
                             <th>{{ __('اسم الصنف') }}</th>
                             <th style="width:150px">{{ __('رقم الباركود') }}</th>
-                            <th style="width:250px">{{ __('شكل الباركود') }}</th>
+                            <th style="width:230px">{{ __('شكل الباركود') }}</th>
+                            <th style="width:90px">{{ __('المتوفّر') }}</th>
                             <th style="width:110px">{{ __('السعر') }}</th>
                             <th style="width:90px">{{ __('كمية') }}</th>
                         </tr>
@@ -118,6 +124,7 @@
                                 <td class="nm">{{ $it['product'] }}</td>
                                 <td class="num">{{ $it['barcode'] }}</td>
                                 <td class="svgbox">{!! Code128::svg($it['barcode'], 40, 1.4) !!}</td>
+                                <td class="stk"><span class="badge {{ $it['stock'] <= 0 ? 'out' : ($it['stock'] <= 5 ? 'low' : '') }}">{{ (int) $it['stock'] == $it['stock'] ? (int) $it['stock'] : number_format($it['stock'], 2) }}</span></td>
                                 <td class="pr">{{ $money($it['price']) }}</td>
                                 <td><input type="number" class="qty" min="1" value="1" onclick="event.stopPropagation()"></td>
                                 {{-- قالب الملصق المطبوع (يُستنسخ عند الطباعة): اسم الصنف · الباركود · الرقم · السعر --}}
