@@ -19,6 +19,7 @@ class CloseShiftRequest extends FormRequest
         return [
             'counted_cash' => ['required', 'numeric', 'min:0'],
             'notes' => ['nullable', 'string', 'max:500'],
+            'print_report' => ['nullable', 'boolean'],
         ];
     }
 }

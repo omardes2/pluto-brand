@@ -51,6 +51,11 @@
         <label class="block text-sm font-semibold text-gray-700 mb-1">{{ __('ملاحظات (اختياري)') }}</label>
         <input type="text" name="notes" maxlength="500" class="w-full rounded-lg border-gray-300 text-sm focus:border-emerald-500 focus:ring-emerald-500">
       </div>
+      <label class="flex items-center gap-2 text-sm font-semibold text-gray-700">
+        <input type="hidden" name="print_report" value="0">
+        <input type="checkbox" name="print_report" value="1" checked class="rounded border-gray-300 text-emerald-600">
+        {{ __('طباعة تقرير الوردية بعد الإغلاق (إيصال 8سم)') }}
+      </label>
       <div class="flex gap-3">
         <a href="{{ route('admin.pos.screen') }}" class="h-12 px-5 grid place-items-center rounded-xl bg-gray-100 text-gray-600 font-bold text-sm">{{ __('رجوع') }}</a>
         <button type="submit" class="flex-1 h-12 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold transition">{{ __('إغلاق الوردية') }}</button>

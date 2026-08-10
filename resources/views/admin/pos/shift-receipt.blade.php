@@ -106,7 +106,7 @@
 
     <div class="actions">
         <button class="p" onclick="window.print()">🖨 {{ __('طباعة') }}</button>
-        <button onclick="window.close()">{{ __('إغلاق') }}</button>
+        <a href="{{ route('admin.pos.shift.open_form') }}" style="text-decoration:none;color:inherit;border:1px solid var(--line);background:#fff;border-radius:8px;padding:8px 18px;margin:0 4px;font-weight:700;font-size:13px;display:inline-block;">{{ __('بدء وردية جديدة') }}</a>
     </div>
 
     @if ($autoPrint ?? false)

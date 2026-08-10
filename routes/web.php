@@ -336,6 +336,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::get('reports', [PosReportController::class, 'index'])->name('reports')->middleware('can:pos.reports.view');
         Route::get('shifts', [PosReportController::class, 'shifts'])->name('shifts')->middleware('can:pos.reports.view');
         Route::get('shifts/{shift}', [PosReportController::class, 'shiftDetail'])->name('shifts.show')->middleware('can:pos.reports.view');
+        Route::get('shifts/{shift}/receipt', [PosReportController::class, 'shiftReceipt'])->name('shifts.receipt')->middleware('can:pos.shift.manage');
         Route::get('items', [PosReportController::class, 'items'])->name('items')->middleware('can:pos.reports.view');
         Route::get('cashiers', [PosReportController::class, 'cashiers'])->name('cashiers')->middleware('can:pos.reports.view');
         Route::get('expenses', [PosReportController::class, 'expenses'])->name('expenses')->middleware('can:pos.reports.view');
