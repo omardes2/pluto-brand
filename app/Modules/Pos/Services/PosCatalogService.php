@@ -68,6 +68,7 @@ class PosCatalogService
             ->with(['product:id,name'])
             ->where(function ($w) use ($code) {
                 $w->where('barcode', $code)
+                    ->orWhere('sku', $code) // يُطابق ملصق الباركود المطبوع بالـSKU عند غياب باركود خاص
                     ->orWhereHas('product', fn ($p) => $p->where('barcode', $code)->where('is_active', true));
             })
             ->first();
@@ -86,6 +87,49 @@ class PosCatalogService
             'stock' => round($available, 2),
             'barcode' => $variant->barcode,
         ];
+    }
+
+    /**
+     * أصناف لطباعة ملصقات الباركود — صفّ واحد لكل **منتج** بباركوده الأصلي (بلا ألوان/مقاسات).
+     * الكود الفعّال = باركود المنتج ← باركود المتغيّر الافتراضي ← SKU الافتراضي.
+     * لا يعتمد على وردية/مستودع؛ يشمل الأصناف بلا مخزون أيضًا. بحث بالاسم/الباركود وفلترة بالفئة.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function barcodeItems(?string $q = null, ?int $categoryId = null, int $limit = 1000): array
+    {
+        $products = Product::query()
+            ->where('is_active', true)
+            ->when($categoryId, fn ($p) => $p->where('category_id', $categoryId))
+            ->when($q !== null && $q !== '', function ($query) use ($q) {
+                $query->where(function ($w) use ($q) {
+                    $w->where('name', 'like', "%{$q}%")
+                        ->orWhere('barcode', 'like', "%{$q}%")
+                        ->orWhereHas('variants', fn ($v) => $v
+                            ->where('barcode', 'like', "%{$q}%")->orWhere('sku', 'like', "%{$q}%"));
+                });
+            })
+            ->with(['defaultVariant', 'category:id,name'])
+            ->orderBy('name')
+            ->limit($limit)
+            ->get();
+
+        return $products
+            ->map(function (Product $p) {
+                $dv = $p->defaultVariant;
+                $code = $p->barcode ?: ($dv?->barcode ?: $dv?->sku);
+
+                return [
+                    'product_id' => $p->id,
+                    'product' => $p->name,
+                    'barcode' => (string) $code,
+                    'price' => $dv ? round($this->sellingPrice($dv), 2) : 0.0,
+                    'category' => $p->category?->name,
+                ];
+            })
+            ->filter(fn ($r) => $r['barcode'] !== '')
+            ->values()
+            ->all();
     }
 
     /** @return array<int, array{id:int, name:string}> */

@@ -26,6 +26,7 @@ use App\Http\Controllers\Admin\Inventory\WarehouseController as AdminWarehouseCo
 use App\Http\Controllers\Admin\Marketing\CampaignController as AdminCampaignController;
 use App\Http\Controllers\Admin\Marketing\CampaignTemplateController as AdminCampaignTemplateController;
 use App\Http\Controllers\Admin\Payment\PaymentController as AdminPaymentController;
+use App\Http\Controllers\Admin\Pos\PosBarcodeController;
 use App\Http\Controllers\Admin\Pos\PosController;
 use App\Http\Controllers\Admin\Pos\PosReportController;
 use App\Http\Controllers\Admin\Purchasing\GoodsReceiptController as AdminGoodsReceiptController;
@@ -342,6 +343,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::get('expenses', [PosReportController::class, 'expenses'])->name('expenses')->middleware('can:pos.reports.view');
         Route::get('expense-types', [PosReportController::class, 'expenseTypes'])->name('expense_types')->middleware('can:pos.reports.view');
         Route::post('expense-types', [PosReportController::class, 'saveExpenseTypes'])->name('expense_types.save')->middleware('can:pos.reports.view');
+        Route::get('barcodes', [PosBarcodeController::class, 'index'])->name('barcodes')->middleware('can:pos.view');
         Route::get('products', [PosController::class, 'products'])->name('products')->middleware('can:pos.sell');
         Route::get('barcode', [PosController::class, 'barcode'])->name('barcode')->middleware('can:pos.sell');
         Route::get('customers', [PosController::class, 'customers'])->name('customers')->middleware('can:pos.sell');
