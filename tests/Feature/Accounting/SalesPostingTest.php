@@ -63,6 +63,29 @@ class SalesPostingTest extends TestCase
         $this->assertEqualsWithDelta(120, $this->balance('6000'), 0.01); // COGS (cost_of_goods debit)
     }
 
+    public function test_discount_is_not_double_counted_in_revenue(): void
+    {
+        // فاتورة: سعر 45، خصم 20 ⇒ الإجمالي 25. يجب أن يُرحَّل الإيراد والذمم 25 (لا 5).
+        $warehouse = Warehouse::where('code', 'WH-MAIN')->firstOrFail();
+        $product = Product::factory()->create();
+        $variant = $product->defaultVariant;
+        $variant->update(['wholesale_price' => 0]);
+        app(InventoryService::class)->receive($variant, $warehouse, 10, 10);
+
+        $order = app(OrderService::class)->create([
+            'branch_id' => Branch::default()->id, 'warehouse_id' => $warehouse->id,
+            'customer_name' => 'عميل', 'customer_phone' => '0599000000',
+        ], [['variant_id' => $variant->id, 'qty' => 1, 'unit_price' => 45, 'discount' => 20]], 2026);
+
+        $this->assertEqualsWithDelta(25, (float) $order->total, 0.01); // الفاتورة 25
+
+        app(OrderService::class)->confirm($order);
+
+        // الإيراد والذمم = 25 = إجمالي الفاتورة (لا يُخصم الخصم مرّتين).
+        $this->assertEqualsWithDelta(25, $this->balance('4010'), 0.01);
+        $this->assertEqualsWithDelta(25, $this->balance('1050'), 0.01);
+    }
+
     public function test_posting_is_idempotent(): void
     {
         $warehouse = Warehouse::where('code', 'WH-MAIN')->firstOrFail();

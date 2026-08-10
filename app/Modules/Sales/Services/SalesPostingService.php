@@ -163,7 +163,9 @@ class SalesPostingService
     {
         $revenueByAccount = [];
         foreach ($order->items as $item) {
-            $net = round((float) $item->line_total - (float) $item->discount, 2);
+            // line_total مُخزَّن صافيًا بعد الخصم (OrderService: qty×price − discount) —
+            // فلا يُطرح الخصم مرّة أخرى هنا (كان يُخصم مرّتين فيُنقِص الإيراد والذمم بقيمة الخصم).
+            $net = round((float) $item->line_total, 2);
             if ($net === 0.0) {
                 continue;
             }
