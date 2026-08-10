@@ -101,11 +101,14 @@ class PosReportService
         $items = [];
         foreach ($orders as $order) {
             foreach ($order->items as $it) {
-                $netQty = (float) $it->qty - (float) $it->returned_qty;
+                $grossQty = (float) $it->qty;
+                $netQty = $grossQty - (float) $it->returned_qty;
                 if ($netQty <= 0) {
                     continue;
                 }
-                $lineRev = $netQty * (float) $it->unit_price;
+                // المبيعات = صافي بعد خصم البند (موزّع تناسبيًا عند إرجاع جزئي).
+                $lineDiscount = $grossQty > 0 ? (float) $it->discount * ($netQty / $grossQty) : 0.0;
+                $lineRev = $netQty * (float) $it->unit_price - $lineDiscount;
                 $lineCost = $netQty * $this->unitCost($it);
 
                 $key = $it->variant_id;
@@ -225,11 +228,14 @@ class PosReportService
 
         foreach ($orders as $order) {
             foreach ($order->items as $it) {
-                $netQty = (float) $it->qty - (float) $it->returned_qty;
+                $grossQty = (float) $it->qty;
+                $netQty = $grossQty - (float) $it->returned_qty;
                 if ($netQty <= 0) {
                     continue;
                 }
-                $lineRev = $netQty * (float) $it->unit_price;
+                // المبيعات = صافي بعد خصم البند (الخصم موزّع تناسبيًا عند إرجاع جزئي).
+                $lineDiscount = $grossQty > 0 ? (float) $it->discount * ($netQty / $grossQty) : 0.0;
+                $lineRev = $netQty * (float) $it->unit_price - $lineDiscount;
                 $lineCost = $netQty * $this->unitCost($it);
                 $revenue += $lineRev;
                 $cost += $lineCost;
@@ -259,14 +265,20 @@ class PosReportService
         usort($items, fn ($a, $b) => $b['revenue'] <=> $a['revenue']);
 
         $expenses = (float) $shift->movements()->where('type', PosShiftMovement::TYPE_PAY_OUT)->sum('amount');
+        // المرتجعات (استرداد نقدي من الدرج) — تُخصم من صافي مبيعات الوردية وربحها.
+        $returns = (float) $shift->movements()->where('type', PosShiftMovement::TYPE_REFUND)->sum('amount');
+        $netSales = round($revenue - $returns, 2);
 
         return [
             'shift' => $shift->loadMissing('cashier', 'warehouse', 'branch'),
             'items' => $items,
             'totals' => [
-                'revenue' => round($revenue, 2),
+                'revenue' => round($revenue, 2),        // إجمالي المبيعات (صافي الخصومات، قبل المرتجعات)
+                'returns' => round($returns, 2),
+                'net_sales' => $netSales,               // صافي بعد المرتجعات
                 'cost' => round($cost, 2),
-                'profit' => round($revenue - $cost, 2),
+                'gross_profit' => round($revenue - $cost, 2),
+                'profit' => round($netSales - $cost, 2), // ربح الوردية بعد المرتجعات
                 'expenses' => round($expenses, 2),
                 'net_cash' => round((float) $shift->expected_cash - (float) $shift->opening_float, 2),
             ],
