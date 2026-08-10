@@ -31,8 +31,7 @@ class PosBarcodePageTest extends TestCase
 
     public function test_barcode_page_lists_items_with_number_and_barcode_svg(): void
     {
-        $product = Product::factory()->active()->create(['name' => 'قميص باركود']);
-        $product->defaultVariant->update(['barcode' => 'BC-98055']);
+        $product = Product::factory()->active()->create(['name' => 'قميص باركود', 'barcode' => 'BC-98055']);
 
         $this->actingAs($this->admin())
             ->get(route('admin.pos.barcodes'))
@@ -43,26 +42,27 @@ class PosBarcodePageTest extends TestCase
             ->assertSee('<svg', false); // شكل الباركود مرسوم SVG
     }
 
-    public function test_barcode_items_use_effective_code_and_exclude_inactive(): void
+    public function test_barcode_items_are_per_product_with_effective_code(): void
     {
-        $withBarcode = Product::factory()->active()->create(['name' => 'له باركود']);
-        $withBarcode->defaultVariant->update(['barcode' => 'HAS-1']);
+        // باركود أصلي على المنتج.
+        $withBarcode = Product::factory()->active()->create(['name' => 'له باركود', 'barcode' => 'PROD-1']);
 
-        // بلا باركود على المتغيّر أو المنتج → يتراجع للـSKU.
-        $noBarcode = Product::factory()->active()->create(['name' => 'بلا باركود']);
+        // بلا باركود على المنتج أو المتغيّر → يتراجع للـSKU الافتراضي.
+        $noBarcode = Product::factory()->active()->create(['name' => 'بلا باركود', 'barcode' => null]);
         $noBarcode->defaultVariant->update(['barcode' => null]);
-        $noBarcode->update(['barcode' => null]);
         $sku = $noBarcode->defaultVariant->sku;
 
-        $inactive = Product::factory()->active()->create(['name' => 'مُعطّل']);
-        $inactive->defaultVariant->update(['is_active' => false]);
+        // منتج مُعطّل → مُستبعَد.
+        $inactive = Product::factory()->active()->create(['name' => 'منتج مُعطّل']);
+        $inactive->update(['is_active' => false]);
 
         $items = collect(app(PosCatalogService::class)->barcodeItems());
-        $codes = $items->pluck('barcode');
 
-        $this->assertTrue($codes->contains('HAS-1'));                 // باركود المتغيّر
-        $this->assertTrue($codes->contains($sku));                    // تراجُع للـSKU
-        $this->assertFalse($items->pluck('product')->contains('مُعطّل')); // المُعطّل مُستبعَد
+        $this->assertTrue($items->pluck('barcode')->contains('PROD-1'));  // باركود المنتج الأصلي
+        $this->assertTrue($items->pluck('barcode')->contains($sku));      // تراجُع للـSKU
+        $this->assertFalse($items->pluck('product')->contains('منتج مُعطّل')); // المُعطّل مُستبعَد
+        // صفّ واحد لكل منتج (لا تكرار حسب اللون/المقاس).
+        $this->assertSame(1, $items->where('product', 'له باركود')->count());
     }
 
     public function test_scanning_a_sku_label_finds_the_variant(): void
