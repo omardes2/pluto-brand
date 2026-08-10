@@ -108,6 +108,28 @@ class PosReportServiceTest extends TestCase
         $this->assertEquals(50.0, $data['totals']['profit']);
     }
 
+    public function test_items_sold_falls_back_to_cost_price_when_wac_and_snapshot_zero(): void
+    {
+        // متغيّر أُدخل مخزونه بلا تكلفة (WAC = 0) لكن له سعر شراء 36 (سيناريو المصفوفة قديمًا).
+        $variant = Product::factory()->create(['cost_price' => 36])->defaultVariant;
+        $variant->update(['cost_price' => 36, 'wholesale_price' => 0]);
+        app(InventoryService::class)->adjustIn($variant, $this->warehouse, 10, null); // WAC يبقى 0
+
+        $shift = $this->openShift();
+        app(PosSaleService::class)->sell($shift->fresh(), [
+            'items' => [['variant_id' => $variant->id, 'qty' => 1, 'unit_price' => 80]],
+            'payment_method' => 'cash',
+        ]);
+
+        $today = now()->toDateString();
+        $data = app(PosReportService::class)->itemsSold($today, $today);
+        $row = collect($data['rows'])->firstWhere('sku', $variant->sku);
+
+        $this->assertNotNull($row);
+        $this->assertEqualsWithDelta(36.0, $row['cost'], 0.01);   // تراجُع لسعر الشراء
+        $this->assertEqualsWithDelta(44.0, $row['profit'], 0.01); // 80 − 36
+    }
+
     public function test_cashier_sales_group_by_cashier_with_payment_split(): void
     {
         $shift = $this->openShift();

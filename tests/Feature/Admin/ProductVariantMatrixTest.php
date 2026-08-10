@@ -79,6 +79,29 @@ class ProductVariantMatrixTest extends TestCase
         $this->assertTrue(InventoryMovement::where('variant_id', $sVariant->id)->exists());
     }
 
+    public function test_matrix_stock_records_purchase_cost_as_wac(): void
+    {
+        $product = Product::factory()->create(['retail_price' => 100, 'cost_price' => 36]);
+        [$size, $s] = $this->sizeAttr();
+
+        $this->actingAs($this->admin())->put('/admin/products/'.$product->uuid, $this->fields($product, [
+            'cost_price' => '36',
+            'axes' => [$size->id => [$s->id]],
+            'variants' => [
+                ['value_ids' => [$s->id], 'retail_price' => '120', 'quantity' => '5', 'is_active' => '1'],
+            ],
+        ]))->assertRedirect()->assertSessionHasNoErrors();
+
+        $sVariant = $product->variants()->where('name', 'S')->first();
+        $warehouse = Warehouse::where('is_default', true)->first() ?? Warehouse::orderBy('id')->first();
+        $stock = InventoryStock::where('variant_id', $sVariant->id)
+            ->where('warehouse_id', $warehouse->id)->first();
+
+        // متوسط التكلفة (WAC) = سعر الشراء، فتظهر التكلفة والأرباح صحيحة في تقارير البيع.
+        $this->assertEqualsWithDelta(36, (float) $stock->average_cost, 0.01);
+        $this->assertEqualsWithDelta(36, (float) $sVariant->cost_price, 0.01);
+    }
+
     public function test_editing_variant_price_persists_and_deactivation_hides(): void
     {
         $product = Product::factory()->create(['retail_price' => 100]);
