@@ -4,9 +4,17 @@
         <div class="bg-white shadow-sm sm:rounded-lg p-6">
             <x-admin.flash />
             <x-admin.header :title="__('الموظفون')">
-                @can('hr.employees.create')
-                    <a href="{{ route('admin.employees.create') }}" class="inline-flex px-4 py-2 bg-emerald-600 text-white text-sm rounded-md hover:bg-emerald-700">{{ __('موظف جديد') }}</a>
-                @endcan
+                <div class="flex gap-2">
+                    @can('hr.employees.ledger')
+                        <form method="POST" action="{{ route('admin.employees.salaries.run') }}" onsubmit="return confirm('{{ __('احتساب راتب هذا الشهر لكل الموظفين النشطين؟') }}')">
+                            @csrf
+                            <button class="inline-flex px-4 py-2 bg-sky-600 text-white text-sm rounded-md hover:bg-sky-700">{{ __('احتساب رواتب الشهر') }}</button>
+                        </form>
+                    @endcan
+                    @can('hr.employees.create')
+                        <a href="{{ route('admin.employees.create') }}" class="inline-flex px-4 py-2 bg-emerald-600 text-white text-sm rounded-md hover:bg-emerald-700">{{ __('موظف جديد') }}</a>
+                    @endcan
+                </div>
             </x-admin.header>
 
             {{-- بحث وفلاتر --}}

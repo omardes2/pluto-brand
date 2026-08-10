@@ -372,6 +372,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::get('/', [AdminEmployeeController::class, 'index'])->name('index')->middleware('can:hr.employees.view');
         Route::get('create', [AdminEmployeeController::class, 'create'])->name('create')->middleware('can:hr.employees.create');
         Route::post('/', [AdminEmployeeController::class, 'store'])->name('store')->middleware('can:hr.employees.create');
+        Route::post('salaries/run', [AdminEmployeeController::class, 'runMonthlySalaries'])->name('salaries.run')->middleware('can:hr.employees.ledger');
         Route::get('{employee}', [AdminEmployeeController::class, 'show'])->name('show')->middleware('can:hr.employees.view');
         Route::post('{employee}/entries', [AdminEmployeeController::class, 'storeEntry'])->name('entries.store')->middleware('can:hr.employees.ledger');
         Route::get('{employee}/edit', [AdminEmployeeController::class, 'edit'])->name('edit')->middleware('can:hr.employees.update');

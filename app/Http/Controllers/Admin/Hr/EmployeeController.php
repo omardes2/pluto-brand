@@ -56,6 +56,13 @@ class EmployeeController extends Controller
         return redirect()->route('admin.employees.index')->with('success', __('أُضيف الموظف.'));
     }
 
+    public function runMonthlySalaries(): RedirectResponse
+    {
+        $count = $this->ledger->accrueMonthlySalaries();
+
+        return back()->with('success', __('احتُسب راتب هذا الشهر لـ :count موظف.', ['count' => $count]));
+    }
+
     public function show(Employee $employee): View
     {
         return view('admin.employees.show', [
