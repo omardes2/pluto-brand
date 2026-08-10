@@ -3,13 +3,16 @@
 namespace App\Modules\Pos\Services;
 
 use App\Modules\Catalog\Models\Category;
+use App\Modules\Catalog\Models\Product;
 use App\Modules\Catalog\Models\ProductVariant;
 use App\Modules\Inventory\Models\InventoryStock;
 use Illuminate\Support\Collection;
 
 /**
  * كتالوج نقطة البيع — بحث/عرض المنتجات القابلة للبيع مع سعرها ومتوفّرها في مستودع الوردية.
- * السعر الفعّال = العرض الترويجي إن وُجد (> 0) وإلا سعر التجزئة (نفس منطق سلة المتجر — بلا تكرار سلوك).
+ * تُجمَّع النتائج على مستوى **المنتج** (بطاقة واحدة لكل منتج) مع متغيّراته (ألوان/مقاسات)
+ * ليختار الكاشير اللون ثم المقاس، بدل بطاقة لكل تركيبة.
+ * السعر الفعّال = العرض الترويجي إن وُجد (> 0) وإلا سعر التجزئة (نفس منطق سلة المتجر).
  */
 class PosCatalogService
 {
@@ -21,47 +24,48 @@ class PosCatalogService
     }
 
     /**
-     * قائمة المنتجات القابلة للبيع (بحث بالاسم/الكود/الباركود، وفلترة بالفئة).
+     * منتجات قابلة للبيع (بحث بالاسم/الكود/الباركود، وفلترة بالفئة) مجمّعة على مستوى المنتج.
+     * يُدرَج المنتج فقط إن كان له متغيّر نشط بمخزون متوفّر في مستودع الوردية.
      *
      * @return array<int, array<string, mixed>>
      */
     public function search(int $warehouseId, ?string $q = null, ?int $categoryId = null, int $limit = 40): array
     {
-        $query = ProductVariant::query()
-            ->where('is_active', true) // المتغيّرات النشطة فقط (تُستبعَد التركيبات القديمة المُعطّلة)
-            ->with(['product:id,name,category_id,is_active', 'product.category:id,name'])
-            ->whereHas('product', function ($p) use ($categoryId) {
-                $p->where('is_active', true);
-                if ($categoryId) {
-                    $p->where('category_id', $categoryId);
-                }
+        $products = Product::query()
+            ->where('is_active', true)
+            ->when($categoryId, fn ($p) => $p->where('category_id', $categoryId))
+            ->when($q !== null && $q !== '', function ($p) use ($q) {
+                $p->where(function ($w) use ($q) {
+                    $w->where('name', 'like', "%{$q}%")
+                        ->orWhere('barcode', 'like', "%{$q}%")
+                        ->orWhereHas('variants', fn ($v) => $v
+                            ->where('sku', 'like', "%{$q}%")->orWhere('barcode', 'like', "%{$q}%"));
+                });
             })
-            // إخفاء الأصناف التي لا كمية متوفّرة منها في مستودع الوردية (المتوفّر = on_hand − reserved > 0).
-            ->whereHas('inventoryStocks', fn ($s) => $s
-                ->where('warehouse_id', $warehouseId)
-                ->whereRaw('on_hand - reserved > 0'));
+            // منتج له متغيّر نشط بمخزون متوفّر (on_hand − reserved > 0) في مستودع الوردية.
+            ->whereHas('variants', fn ($v) => $v->where('is_active', true)
+                ->whereHas('inventoryStocks', fn ($s) => $s
+                    ->where('warehouse_id', $warehouseId)->whereRaw('on_hand - reserved > 0')))
+            ->with([
+                'primaryImage',
+                'category:id,name',
+                'variants' => fn ($v) => $v->where('is_active', true)->with('attributeValues.attribute'),
+            ])
+            ->orderBy('name')
+            ->limit($limit)
+            ->get();
 
-        if ($q !== null && $q !== '') {
-            $query->where(function ($w) use ($q) {
-                $w->where('sku', 'like', "%{$q}%")
-                    ->orWhere('barcode', 'like', "%{$q}%")
-                    ->orWhereHas('product', fn ($p) => $p
-                        ->where('name', 'like', "%{$q}%")
-                        ->orWhere('barcode', 'like', "%{$q}%"));
-            });
-        }
+        $stocks = $this->stocksFor($products, $warehouseId);
 
-        $variants = $query->limit($limit)->get();
-
-        return $this->mapVariants($variants, $warehouseId);
+        return $products->map(fn (Product $p) => $this->mapProduct($p, $stocks))->values()->all();
     }
 
-    /** بحث دقيق بالباركود (متغيّر أو منتج) — يُرجع بندًا واحدًا أو null. */
+    /** بحث دقيق بالباركود (متغيّر أو منتج) — يُرجع متغيّرًا واحدًا جاهزًا للإضافة أو null. */
     public function findByBarcode(int $warehouseId, string $code): ?array
     {
         $variant = ProductVariant::query()
             ->where('is_active', true) // لا يُباع متغيّر مُعطّل بالباركود
-            ->with(['product:id,name,category_id,is_active', 'product.category:id,name'])
+            ->with(['product:id,name'])
             ->where(function ($w) use ($code) {
                 $w->where('barcode', $code)
                     ->orWhereHas('product', fn ($p) => $p->where('barcode', $code)->where('is_active', true));
@@ -72,7 +76,16 @@ class PosCatalogService
             return null;
         }
 
-        return $this->mapVariants(collect([$variant]), $warehouseId)[0] ?? null;
+        $stock = InventoryStock::where('warehouse_id', $warehouseId)->where('variant_id', $variant->id)->first();
+        $available = $stock ? (float) $stock->on_hand - (float) $stock->reserved : 0.0;
+
+        return [
+            'variant_id' => $variant->id,
+            'name' => $this->variantName($variant->product, $variant),
+            'price' => round($this->sellingPrice($variant), 2),
+            'stock' => round($available, 2),
+            'barcode' => $variant->barcode,
+        ];
     }
 
     /** @return array<int, array{id:int, name:string}> */
@@ -86,37 +99,103 @@ class PosCatalogService
     }
 
     /**
-     * @param  Collection<int, ProductVariant>  $variants
-     * @return array<int, array<string, mixed>>
+     * @param  Collection<int, Product>  $products
+     * @return Collection<int, InventoryStock>
      */
-    private function mapVariants($variants, int $warehouseId): array
+    private function stocksFor($products, int $warehouseId)
     {
-        $ids = $variants->pluck('id')->all();
-        $stocks = InventoryStock::where('warehouse_id', $warehouseId)
-            ->whereIn('variant_id', $ids)->get()->keyBy('variant_id');
+        $variantIds = $products->flatMap(fn (Product $p) => $p->variants->pluck('id'))->all();
 
-        return $variants->map(function (ProductVariant $v) use ($stocks) {
+        return InventoryStock::where('warehouse_id', $warehouseId)
+            ->whereIn('variant_id', $variantIds)->get()->keyBy('variant_id');
+    }
+
+    /**
+     * يبني حمولة منتج: بيانات البطاقة + محاور الخيارات (ألوان/مقاسات) + متغيّراته.
+     *
+     * @return array<string, mixed>
+     */
+    private function mapProduct(Product $p, $stocks): array
+    {
+        $variants = $p->variants->map(function (ProductVariant $v) use ($p, $stocks) {
             $stock = $stocks->get($v->id);
             $available = $stock ? (float) $stock->on_hand - (float) $stock->reserved : 0.0;
             $price = $this->sellingPrice($v);
             $retail = (float) $v->retail_price;
-            $name = $v->product?->name ?? $v->sku ?? '';
-            if (! empty($v->name)) {
-                $name .= ' — '.$v->name;
+
+            $values = [];
+            foreach ($v->attributeValues as $av) {
+                $values[(int) $av->attribute_id] = [
+                    'value_id' => (int) $av->id,
+                    'label' => $av->label ?: $av->value,
+                    'color_hex' => $av->color_hex,
+                ];
             }
 
             return [
                 'variant_id' => $v->id,
-                'name' => $name,
-                'sku' => $v->sku,
-                'barcode' => $v->barcode,
+                'name' => $this->variantName($p, $v),
                 'price' => round($price, 2),
                 'retail' => round($retail, 2),
                 'has_promo' => $price + 0.001 < $retail,
                 'stock' => round($available, 2),
-                'category_id' => $v->product?->category_id,
-                'category_name' => $v->product?->category?->name,
+                'barcode' => $v->barcode,
+                'values' => $values, // attribute_id => {value_id,label,color_hex}
             ];
-        })->values()->all();
+        })->values();
+
+        return [
+            'product_id' => $p->id,
+            'name' => $p->name,
+            'image' => $p->primaryImage?->url(),
+            'price' => round((float) $variants->min('price'), 2),
+            'retail' => round((float) $variants->min('retail'), 2),
+            'has_promo' => (bool) $variants->contains(fn ($x) => $x['has_promo']),
+            'stock' => round((float) $variants->sum('stock'), 2),
+            'category_id' => $p->category_id,
+            'category_name' => $p->category?->name,
+            'axes' => $this->axes($p),
+            'variants' => $variants->all(),
+        ];
+    }
+
+    /**
+     * محاور الخيارات المتوفّرة للمنتج (مقاس/لون…)، مرتّبة بجعل محور اللون أولًا (للعرض كقائمة علوية).
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function axes(Product $p): array
+    {
+        $byId = [];
+        foreach ($p->variants as $v) {
+            foreach ($v->attributeValues as $av) {
+                $aid = (int) $av->attribute_id;
+                if (! isset($byId[$aid])) {
+                    $byId[$aid] = [
+                        'id' => $aid,
+                        'name' => $av->attribute?->name,
+                        'is_color' => ! empty($av->color_hex) || $av->attribute?->type === 'color',
+                        'sort' => (int) ($av->attribute?->sort_order ?? 0),
+                    ];
+                }
+            }
+        }
+
+        return collect($byId)
+            ->sortBy(fn ($a) => sprintf('%d-%05d', $a['is_color'] ? 0 : 1, $a['sort']))
+            ->values()
+            ->map(fn ($a) => ['id' => $a['id'], 'name' => $a['name'], 'is_color' => $a['is_color']])
+            ->all();
+    }
+
+    /** اسم العرض: اسم المنتج + تسمية الخيار إن اختلفت عن اسم المنتج (المتغيّر الافتراضي يحمل الاسم نفسه). */
+    private function variantName(?Product $p, ProductVariant $v): string
+    {
+        $name = $p?->name ?? $v->sku ?? '';
+        if (! empty($v->name) && $v->name !== $p?->name) {
+            $name .= ' — '.$v->name;
+        }
+
+        return $name;
     }
 }
