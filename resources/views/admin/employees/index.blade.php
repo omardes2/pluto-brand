@@ -44,6 +44,7 @@
                                 </td>
                                 <td class="py-2 px-3">
                                     <div class="flex flex-wrap gap-2">
+                                        <a href="{{ route('admin.employees.show', $e) }}" class="text-sky-600 hover:underline">{{ __('كشف الحساب') }}</a>
                                         @can('hr.employees.update')
                                             <a href="{{ route('admin.employees.edit', $e) }}" class="text-emerald-600 hover:underline">{{ __('تعديل') }}</a>
                                             <form method="POST" action="{{ route('admin.employees.toggle', $e) }}">@csrf<button class="text-amber-600 hover:underline">{{ $e->is_active ? __('تعطيل') : __('تفعيل') }}</button></form>
