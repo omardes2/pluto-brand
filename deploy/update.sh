@@ -45,6 +45,11 @@ composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
 log "php artisan migrate --force"
 php artisan migrate --force
 
+# مزامنة البيانات المرجعية والصلاحيات (سيدر idempotent — آمن للإنتاج، لا يمسّ بيانات المستخدمين).
+# ضروري ليظهر أي تبويب/ميزة جديدة تعتمد على صلاحيات مُضافة حديثًا.
+log "php artisan db:seed --force (reference data + permissions)"
+php artisan db:seed --force
+
 log "npm run build"
 npm ci
 npm run build
@@ -54,6 +59,7 @@ sudo find "${APP_PATH}/storage" "${APP_PATH}/bootstrap/cache" -type d -exec chmo
 
 log "php artisan optimize"
 php artisan optimize:clear
+php artisan permission:cache-reset || true
 php artisan optimize
 
 log "Reload opcache + restart workers"
