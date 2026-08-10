@@ -36,8 +36,9 @@ class InventoryController extends Controller
         $this->authorize('inventory.stocks.view');
 
         $products = Product::query()->with('category:id,name')
-            ->withSum('stocks as on_hand_sum', 'on_hand')
-            ->withSum('stocks as reserved_sum', 'reserved')
+            // المتوفّر القابل للبيع = مخزون المتغيّرات النشطة فقط (يستبعد العالق على المُعطَّلة).
+            ->withSum('activeStocks as on_hand_sum', 'on_hand')
+            ->withSum('activeStocks as reserved_sum', 'reserved')
             ->when($request->filled('search'), function ($q) use ($request) {
                 $term = '%'.$request->string('search').'%';
                 $q->where(fn ($w) => $w->where('name', 'like', $term)->orWhere('sku', 'like', $term));
@@ -58,15 +59,17 @@ class InventoryController extends Controller
     {
         $this->authorize('inventory.stocks.view');
 
-        $variantIds = $product->variants()->pluck('id');
+        $variantIds = $product->variants()->pluck('id'); // كل المتغيّرات — لسجل الحركات (تاريخ كامل)
 
         $ledger = InventoryLedger::query()
             ->whereIn('variant_id', $variantIds)
             ->with(['warehouse:id,name', 'movement:id,reason,reference_type,reference_id'])
             ->latest('id')->paginate(20);
 
-        $onHand = (float) InventoryStock::whereIn('variant_id', $variantIds)->sum('on_hand');
-        $reserved = (float) InventoryStock::whereIn('variant_id', $variantIds)->sum('reserved');
+        // المتوفّر/المحجوز = المتغيّرات النشطة فقط (المخزون القابل للبيع) — متّسق مع القوائم.
+        $activeVariantIds = $product->variants()->where('is_active', true)->pluck('id');
+        $onHand = (float) InventoryStock::whereIn('variant_id', $activeVariantIds)->sum('on_hand');
+        $reserved = (float) InventoryStock::whereIn('variant_id', $activeVariantIds)->sum('reserved');
 
         return view('admin.inventory.product-ledger', [
             'product' => $product->load('category:id,name'),

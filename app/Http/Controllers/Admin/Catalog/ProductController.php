@@ -36,8 +36,9 @@ class ProductController extends Controller
 
         $query = Product::query()
             ->with(['category', 'primaryImage', 'defaultVariant'])
-            ->withSum('stocks', 'on_hand')       // stocks_sum_on_hand
-            ->withSum('stocks', 'reserved')      // stocks_sum_reserved
+            // المتوفّر القابل للبيع = مخزون المتغيّرات النشطة فقط (يستبعد العالق على المُعطَّلة).
+            ->withSum('activeStocks as stocks_sum_on_hand', 'on_hand')
+            ->withSum('activeStocks as stocks_sum_reserved', 'reserved')
             ->withSum('orderItems', 'qty_shipped') // order_items_sum_qty_shipped (المباع)
             ->when($request->filled('search'), fn ($q) => $q->where(fn ($w) => $w
                 ->where('name', 'like', '%'.$request->string('search').'%')
