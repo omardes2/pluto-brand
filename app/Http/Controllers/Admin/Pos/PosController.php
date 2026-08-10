@@ -100,6 +100,11 @@ class PosController extends Controller
 
         $closed = $this->shifts->close($shift, (float) $request->validated()['counted_cash'], $request->validated()['notes'] ?? null);
 
+        // طباعة تقرير الإغلاق (8سم) بعد الإغلاق عند طلبها — يفتح صفحة الإيصال بالطباعة التلقائية.
+        if ($request->boolean('print_report')) {
+            return redirect()->route('admin.pos.shifts.receipt', ['shift' => $closed, 'print' => 1]);
+        }
+
         return redirect()->route('admin.pos.shift.open_form')->with('success', __('أُغلقت الوردية :n — الفرق :v.', [
             'n' => $closed->number,
             'v' => number_format((float) $closed->variance, 2),

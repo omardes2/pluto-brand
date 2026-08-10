@@ -27,7 +27,13 @@
     <x-slot name="header">
         <div class="flex items-center justify-between">
             <h2 class="font-semibold text-xl text-gray-800">{{ __('تفاصيل الوردية') }} {{ $shift->number }}</h2>
-            <a href="{{ route('admin.pos.shifts') }}" class="text-sm text-gray-500 hover:underline">{{ __('← كل الورديات') }}</a>
+            <div class="flex items-center gap-4">
+                <a href="{{ route('admin.pos.shifts.receipt', $shift) }}" target="_blank"
+                   class="inline-flex items-center gap-1 text-sm font-semibold text-emerald-700 hover:underline">
+                    🖨 {{ __('طباعة تقرير الوردية') }}
+                </a>
+                <a href="{{ route('admin.pos.shifts') }}" class="text-sm text-gray-500 hover:underline">{{ __('← كل الورديات') }}</a>
+            </div>
         </div>
     </x-slot>
 

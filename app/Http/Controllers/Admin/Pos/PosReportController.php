@@ -5,12 +5,17 @@ namespace App\Http\Controllers\Admin\Pos;
 use App\Http\Controllers\Controller;
 use App\Modules\Foundation\Services\Settings;
 use App\Modules\Pos\Models\PosShift;
+use App\Modules\Pos\Models\PosShiftMovement;
 use App\Modules\Pos\Services\PosReportService;
+use App\Modules\Pos\Services\PosShiftService;
 use Illuminate\Http\Request;
 
 class PosReportController extends Controller
 {
-    public function __construct(private readonly PosReportService $reports) {}
+    public function __construct(
+        private readonly PosReportService $reports,
+        private readonly PosShiftService $shifts,
+    ) {}
 
     /** تقارير نقطة البيع — أرشفة يومية (مبيعات نقدية/بطاقة، مصروفات، رصيد نهائي). */
     public function index(Request $request)
@@ -40,6 +45,25 @@ class PosReportController extends Controller
     public function shiftDetail(PosShift $shift)
     {
         return view('admin.pos.shift-detail', $this->reports->shiftDetail($shift));
+    }
+
+    /** تقرير إغلاق الوردية بمقاس إيصال 8سم — للطباعة (?print=1 للطباعة التلقائية). */
+    public function shiftReceipt(Request $request, PosShift $shift)
+    {
+        $shift->loadMissing('cashier');
+        $expenses = (float) $shift->movements()->where('type', PosShiftMovement::TYPE_PAY_OUT)->sum('amount');
+
+        // للورديات المفتوحة لم يُحفظ الرصيد المتوقّع بعد — يُحسب لحظيًا.
+        if ($shift->status !== 'closed') {
+            $shift->expected_cash = $this->shifts->computeExpectedCash($shift);
+        }
+
+        return view('admin.pos.shift-receipt', [
+            'shift' => $shift,
+            'cashierName' => $shift->cashier?->name ?? '—',
+            'expenses' => $expenses,
+            'autoPrint' => $request->boolean('print'),
+        ]);
     }
 
     /** كشف مبيعات الأصناف — ماذا انباع وكم كمية (مع الربح) في مدى تاريخي. */
