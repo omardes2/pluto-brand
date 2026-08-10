@@ -4,10 +4,12 @@ namespace App\Http\Controllers\Admin\Hr;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Hr\StoreEmployeeRequest;
+use App\Http\Requests\Admin\Hr\StoreLedgerEntryRequest;
 use App\Http\Requests\Admin\Hr\UpdateEmployeeRequest;
 use App\Models\User;
 use App\Modules\Foundation\Models\Branch;
 use App\Modules\Hr\Models\Employee;
+use App\Modules\Hr\Services\EmployeeLedgerService;
 use App\Modules\Hr\Services\EmployeeService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
@@ -19,7 +21,10 @@ use Illuminate\Http\Request;
  */
 class EmployeeController extends Controller
 {
-    public function __construct(private readonly EmployeeService $service) {}
+    public function __construct(
+        private readonly EmployeeService $service,
+        private readonly EmployeeLedgerService $ledger,
+    ) {}
 
     public function index(Request $request): View
     {
@@ -49,6 +54,31 @@ class EmployeeController extends Controller
         $this->service->create($request->validated());
 
         return redirect()->route('admin.employees.index')->with('success', __('أُضيف الموظف.'));
+    }
+
+    public function show(Employee $employee): View
+    {
+        return view('admin.employees.show', [
+            'employee' => $employee->load('branch', 'user', 'customer'),
+            'summary' => $this->ledger->summary($employee),
+            'entries' => $employee->ledgerEntries()->with('creator:id,name')->paginate(30),
+        ]);
+    }
+
+    public function storeEntry(StoreLedgerEntryRequest $request, Employee $employee): RedirectResponse
+    {
+        $data = $request->validated();
+        $this->ledger->record(
+            employee: $employee,
+            type: $data['type'],
+            amount: (float) $data['amount'],
+            note: $data['note'] ?? null,
+            entryDate: $data['entry_date'] ?? null,
+            sourceType: 'manual',
+            direction: $data['direction'] ?? 'debit',
+        );
+
+        return back()->with('success', __('سُجّلت الحركة.'));
     }
 
     public function edit(Employee $employee): View

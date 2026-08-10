@@ -14,10 +14,11 @@ class HrPermissionSeeder extends Seeder
 {
     private array $permissions = [
         'hr.employees.view', 'hr.employees.create', 'hr.employees.update', 'hr.employees.delete',
+        'hr.employees.ledger', // تسجيل قيود دفتر الحساب (سلف/رواتب/تسويات)
     ];
 
     private array $grants = [
-        'manager' => ['hr.employees.view'],
+        'manager' => ['hr.employees.view', 'hr.employees.ledger'],
     ];
 
     public function run(): void
