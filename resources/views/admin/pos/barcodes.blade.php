@@ -52,11 +52,14 @@
         td.stk .badge.out{ color:#b91c1c; background:#fef2f2; border-color:#fecaca; }
         .qty{ width:60px; font-family:inherit; font-size:13px; border:1px solid var(--line); border-radius:7px; padding:6px; text-align:center; }
         .empty{ text-align:center; color:var(--muted); padding:60px 20px; }
+        .hint{ background:#eff6ff; border:1px solid #bfdbfe; color:#1e3a8a; border-radius:12px; padding:11px 14px;
+            font-size:12.5px; line-height:1.8; margin-bottom:16px; }
+        .hint b{ font-weight:800; }
 
         /* منطقة الطباعة — تظهر عند الطباعة فقط */
         #printArea{ display:none; }
         .label{ width:50mm; height:25mm; padding:1mm 1.5mm; display:flex; flex-direction:column; align-items:center; justify-content:flex-start;
-            overflow:hidden; text-align:center; }
+            overflow:hidden; text-align:center; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
         .label .l-nm{ font-size:2.3mm; font-weight:700; line-height:1.3; max-height:6mm; overflow:hidden; padding-top:0.3mm;
             display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; width:100%; }
         .label .l-bc{ width:100%; }
@@ -65,11 +68,12 @@
         .label .l-pr{ font-size:3.3mm; font-weight:800; margin-top:0.4mm; }
 
         @media print{
-            html,body{ background:#fff; }
+            html,body{ background:#fff; margin:0; padding:0; width:50mm;
+                -webkit-print-color-adjust:exact; print-color-adjust:exact; }
             .no-print{ display:none !important; }
             #printArea{ display:block !important; }
             @page{ size:50mm 25mm; margin:0; }
-            .label{ page-break-after:always; break-after:page; }
+            .label{ page-break-after:always; break-after:page; page-break-inside:avoid; break-inside:avoid; }
             .label:last-child{ page-break-after:auto; break-after:auto; }
         }
     </style>
@@ -100,6 +104,13 @@
             </div>
             <button type="button" class="btn brand" onclick="printSelected()">🖨 <span id="printLabel">{{ __('طباعة المحدد') }}</span></button>
         </form>
+
+        <div class="hint">
+            🖨 <b>{{ __('لطباعة صحيحة على ورق الملصق 5×2.5سم، اضبط نافذة الطباعة هكذا:') }}</b><br>
+            • {{ __('مقاس الورق (Paper size): اختر مقاس الملصق 50×25مم — إن لم يظهر، أضِفه كمقاس مخصّص في إعدادات الطابعة.') }}<br>
+            • {{ __('الهوامش (Margins): بلا (None) — والمقياس (Scale): افتراضي 100%.') }}<br>
+            • {{ __('أزِل علامة «Headers and footers» من «More settings» حتى لا يُطبع التاريخ والرابط على الملصق.') }}
+        </div>
 
         @if (count($items) === 0)
             <div class="card"><div class="empty">{{ __('لا توجد أصناف مطابقة.') }}</div></div>
