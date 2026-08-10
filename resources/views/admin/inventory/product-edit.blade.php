@@ -13,7 +13,14 @@
 
         <form method="POST" action="{{ route('admin.inventory.products.update', $product) }}"
               class="bg-white shadow-sm sm:rounded-lg p-6 space-y-5"
-              x-data="{ total: {{ (float) $quantity }}, recalc() { let s = 0; this.$root.querySelectorAll('[data-vqty]').forEach(el => s += (parseFloat(el.value) || 0)); this.total = Math.round(s * 100) / 100; } }">
+              x-data="{
+                  rows: {{ $variants->mapWithKeys(fn ($v) => [$v->id => (float) ($stockByVariant[$v->id] ?? 0)])->toJson() }},
+                  manual: null,
+                  get rowsSum() { let s = 0; for (const k in this.rows) s += (parseFloat(this.rows[k]) || 0); return Math.round(s * 100) / 100; },
+                  get total() { return this.manual === null ? this.rowsSum : this.manual; },
+                  set total(v) { this.manual = (v === '' || v === null) ? null : (parseFloat(v) || 0); },
+                  onRowInput() { this.manual = null; },
+              }">
             @csrf @method('PUT')
 
             <div>
@@ -57,6 +64,7 @@
                          كتابته يدويًا يُطبَّق الفرق على المتغيّر الافتراضي. --}}
                     <x-admin.field :label="__('إجمالي الكمية المتوفرة')" name="quantity" :hint="__('يتغيّر تلقائيًا مع الجدول؛ أو اكتب رقمًا فيُضاف الفرق للمتغيّر الافتراضي.')">
                         <input type="number" step="0.01" min="0" name="quantity" x-model.number="total"
+                               value="{{ rtrim(rtrim(number_format((float) $quantity, 2, '.', ''), '0'), '.') }}"
                                class="w-full rounded-lg border-gray-300 focus:border-emerald-500 focus:ring-emerald-500" />
                     </x-admin.field>
                 @else
@@ -106,9 +114,9 @@
                                         <td class="py-2 px-3 text-gray-800">{{ $label }}</td>
                                         <td class="py-2 px-3 text-gray-400 tabular-nums">{{ $v->barcode ?: '—' }}</td>
                                         <td class="py-2 px-3">
-                                            <input type="number" step="0.01" min="0" data-vqty @input="recalc()"
+                                            <input type="number" step="0.01" min="0"
                                                    name="variant_qty[{{ $v->id }}]"
-                                                   value="{{ old('variant_qty.'.$v->id, rtrim(rtrim(number_format((float) ($stockByVariant[$v->id] ?? 0), 2, '.', ''), '0'), '.')) }}"
+                                                   x-model.number="rows[{{ $v->id }}]" @input="onRowInput()"
                                                    class="w-28 rounded-lg border-gray-300 focus:border-emerald-500 focus:ring-emerald-500 tabular-nums" />
                                         </td>
                                     </tr>
