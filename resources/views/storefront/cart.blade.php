@@ -31,11 +31,17 @@
                 <div class="lg:col-span-2 space-y-3">
                     <template x-for="item in $store.cart.items" :key="item.variant_id">
                         <div class="bg-white rounded-xl border border-gray-200 p-4 flex items-center gap-4">
-                            <div class="h-16 w-16 rounded-lg bg-gray-100 shrink-0 flex items-center justify-center text-gray-300">
-                                <svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75h16.5v16.5H3.75z"/></svg>
+                            <div class="h-16 w-16 rounded-lg bg-gray-100 shrink-0 overflow-hidden flex items-center justify-center text-gray-300">
+                                <template x-if="item.image">
+                                    <img :src="item.image" :alt="item.name" class="h-full w-full object-cover" loading="lazy">
+                                </template>
+                                <template x-if="!item.image">
+                                    <svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75h16.5v16.5H3.75z"/></svg>
+                                </template>
                             </div>
                             <div class="flex-1 min-w-0">
-                                <p class="font-medium text-gray-800 truncate" x-text="item.sku"></p>
+                                <p class="font-medium text-gray-800 truncate" x-text="item.name"></p>
+                                <p class="text-xs text-gray-400 mt-0.5 tabular-nums" x-show="item.barcode" x-text="item.barcode"></p>
                                 <p class="text-sm text-black mt-0.5" x-text="`${Number(item.unit_price).toFixed(2)} {{ __('storefront.currency') }}`"></p>
                             </div>
                             <div class="inline-flex items-center rounded-lg border border-gray-300 overflow-hidden">
