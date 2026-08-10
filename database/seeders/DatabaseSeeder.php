@@ -56,6 +56,8 @@ class DatabaseSeeder extends Seeder
             SalesOperationsPermissionSeeder::class,
             // Phase 4.2 — العمولات/الأرباح
             CommissionsPermissionSeeder::class,
+            // الموارد البشرية — الموظفون/الرواتب/الذمم
+            HrPermissionSeeder::class,
             // Phase 4.3 — محرّك حالة التوصيل القانوني + عمليات التوصيل
             DeliveryStatusPermissionSeeder::class,
             DeliveryExceptionCategorySeeder::class,
