@@ -109,6 +109,20 @@ class Product extends Model
         );
     }
 
+    /**
+     * أرصدة المخزون للمتغيّرات **النشطة** فقط — الكمية القابلة للبيع فعليًا. يستبعد المخزون
+     * العالق على متغيّرات مُعطَّلة (مثل placeholder افتراضي قديم بعد التحويل لمقاسات/ألوان)،
+     * فيتطابق «المتوفّر» في القوائم مع مجموع كميّات المقاسات/الألوان في شاشة التعديل.
+     */
+    public function activeStocks(): HasManyThrough
+    {
+        return $this->hasManyThrough(
+            InventoryStock::class,
+            ProductVariant::class,
+            'product_id', 'variant_id', 'id', 'id',
+        )->where('product_variants.is_active', true);
+    }
+
     /** بنود الطلبات لكل متغيّرات المنتج (عبر ProductVariant) — لتجميع المباع. */
     public function orderItems(): HasManyThrough
     {
