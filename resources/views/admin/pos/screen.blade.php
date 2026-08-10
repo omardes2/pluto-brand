@@ -252,10 +252,12 @@
       </div>
 
       <div class="summary">
-        <div class="disc"><label>{{ __('خصم') }}</label><input x-model.number="discount" type="number" min="0" inputmode="decimal"><label>₪</label></div>
+        @can('pos.discount')
+          <div class="disc"><label>{{ __('خصم') }}</label><input x-model.number="discount" type="number" min="0" inputmode="decimal"><label>₪</label></div>
+        @endcan
         <div class="totals">
           <div class="trow"><span>{{ __('الإجمالي الفرعي') }}</span><b class="tnum" x-text="money(subtotal)"></b></div>
-          <div class="trow"><span>{{ __('الخصم') }}</span><b class="tnum" x-text="'− '+money(discountVal)"></b></div>
+          <div class="trow" x-show="discountVal>0"><span>{{ __('الخصم') }}</span><b class="tnum" x-text="'− '+money(discountVal)"></b></div>
           <div class="trow grand"><span>{{ __('الإجمالي') }}</span><b class="tnum" x-text="money(total)"></b></div>
         </div>
         <div class="pay-methods">

@@ -42,6 +42,43 @@ class EmployeeLedgerService
     }
 
     /**
+     * احتساب راتب الشهر لكل الموظفين النشطين (قيد استحقاق راتب) — idempotent لكل شهر.
+     * يتخطّى من احتُسب له راتب هذا الشهر مسبقًا. يعيد عدد من احتُسب لهم.
+     */
+    public function accrueMonthlySalaries(?Carbon $month = null): int
+    {
+        $month = $month ?: Carbon::now();
+        $period = (int) $month->format('Ym'); // مثل 202608
+        $entryDate = $month->copy()->endOfMonth()->toDateString();
+        $count = 0;
+
+        Employee::where('is_active', true)->where('monthly_salary', '>', 0)
+            ->chunkById(100, function ($employees) use ($period, $entryDate, $month, &$count) {
+                foreach ($employees as $employee) {
+                    $already = $employee->ledgerEntries()
+                        ->where('type', EmployeeLedgerEntry::TYPE_SALARY_ACCRUAL)
+                        ->where('source_type', 'salary_run')->where('source_id', $period)->exists();
+                    if ($already) {
+                        continue;
+                    }
+
+                    $this->record(
+                        employee: $employee,
+                        type: EmployeeLedgerEntry::TYPE_SALARY_ACCRUAL,
+                        amount: (float) $employee->monthly_salary,
+                        note: __('راتب شهر :m', ['m' => $month->format('Y-m')]),
+                        entryDate: $entryDate,
+                        sourceType: 'salary_run',
+                        sourceId: $period,
+                    );
+                    $count++;
+                }
+            });
+
+        return $count;
+    }
+
+    /**
      * ملخّص حساب الموظف: الإجماليات والرصيد.
      * balance موجب = مُستحق للموظف (له رصيد)، سالب = دين عليه.
      *
