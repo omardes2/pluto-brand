@@ -464,11 +464,19 @@
       <div class="r-head" style="background:var(--chrome)"><div class="ok">🧾</div><b>{{ __('مصروف يومي') }}</b><span>{{ __('سحب نقدي من الدرج') }}</span></div>
       <div style="padding:18px 20px;display:flex;flex-direction:column;gap:12px">
         <div>
+          <label class="expl">{{ __('سلفة لموظف؟ (اختياري)') }}</label>
+          <select x-model="exp.employee_id" class="expi">
+            <option value="">{{ __('— مصروف عادي —') }}</option>
+            @foreach ($employees as $emp)<option value="{{ $emp->id }}">{{ $emp->name }}</option>@endforeach
+          </select>
+        </div>
+        <div x-show="!exp.employee_id">
           <label class="expl">{{ __('نوع المصروف') }}</label>
           <select x-model="exp.category" class="expi">
             @foreach ($expenseCategories as $cat)<option value="{{ $cat }}">{{ $cat }}</option>@endforeach
           </select>
         </div>
+        <div x-show="exp.employee_id" x-cloak style="font-size:12px;color:var(--muted)">{{ __('سيُخصم المبلغ كسلفة من راتب الموظف ويظهر في كشف حسابه.') }}</div>
         <div><label class="expl">{{ __('المبلغ (₪)') }}</label><input type="number" min="0" step="0.01" x-model.number="exp.amount" class="expi tnum"></div>
         <div><label class="expl">{{ __('ملاحظات') }}</label><input type="text" x-model="exp.note" maxlength="255" class="expi"></div>
       </div>
@@ -492,6 +500,7 @@ document.addEventListener('alpine:init', () => {
     q: '', barcodeInput: '', cat: null, busy: false,
     showExpense: false, exp: { category: '', amount: null, note: '' },
     expenseCategories: @json($expenseCategories),
+    employees: @json($employees),
     showReturn: false, retTab: 'invoice',
     ret: { number: '', order: null, items: [], note: '' },
     ni: { q: '', results: [], lines: [], note: '' },
@@ -670,7 +679,7 @@ document.addEventListener('alpine:init', () => {
       } catch(e){ this.toast('{{ __('خطأ في الاتصال') }}'); }
       finally{ this.busy=false; }
     },
-    openExpense(){ this.exp={ category:(this.expenseCategories[0]||''), amount:null, note:'' }; this.showExpense=true; },
+    openExpense(){ this.exp={ category:(this.expenseCategories[0]||''), amount:null, note:'', employee_id:'' }; this.showExpense=true; },
     async submitExpense(){
       if(this.busy) return;
       if(!this.exp.amount || this.exp.amount<=0){ this.toast('{{ __('أدخل مبلغ المصروف') }}'); return; }
@@ -678,7 +687,7 @@ document.addEventListener('alpine:init', () => {
       try{
         const r=await fetch(this.urls.expense,{method:'POST',
           headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':this.csrf},
-          body:JSON.stringify({category:this.exp.category,amount:this.exp.amount,note:this.exp.note})});
+          body:JSON.stringify({category:this.exp.category,amount:this.exp.amount,note:this.exp.note,employee_id:this.exp.employee_id||null})});
         const data=await r.json();
         if(!r.ok){ this.toast(data.message || '{{ __('تعذّر حفظ المصروف') }}'); return; }
         this.showExpense=false;

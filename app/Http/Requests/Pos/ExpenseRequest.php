@@ -20,6 +20,7 @@ class ExpenseRequest extends FormRequest
             'category' => ['required', 'string', 'max:60'],
             'amount' => ['required', 'numeric', 'gt:0'],
             'note' => ['nullable', 'string', 'max:255'],
+            'employee_id' => ['nullable', 'integer', 'exists:employees,id'], // سلفة موظف
         ];
     }
 }

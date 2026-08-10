@@ -4,6 +4,9 @@ namespace App\Modules\Pos\Services;
 
 use App\Modules\Crm\Models\Customer;
 use App\Modules\Foundation\Services\Settings;
+use App\Modules\Hr\Models\Employee;
+use App\Modules\Hr\Models\EmployeeLedgerEntry;
+use App\Modules\Hr\Services\EmployeeLedgerService;
 use App\Modules\Inventory\Models\InventoryStock;
 use App\Modules\Pos\Models\PosShift;
 use App\Modules\Sales\Models\Order;
@@ -26,6 +29,7 @@ class PosSaleService
         private readonly OrderService $orders,
         private readonly OrderPaymentService $payments,
         private readonly PosShiftService $shifts,
+        private readonly EmployeeLedgerService $employeeLedger,
     ) {}
 
     /**
@@ -93,6 +97,21 @@ class PosSaleService
 
             // تسجيل حركة الدرج وتحديث أرصدة الوردية (الآجل يُسجَّل كـ credit_sale بلا أثر نقدي).
             $this->shifts->recordSale($shift->fresh(), $order->fresh(), $method);
+
+            // بيع آجل على موظف: قيد «مشتريات» في دفتر حسابه يُخصم من راتبه.
+            if ($method === 'credit' && $customer) {
+                $employee = Employee::where('customer_id', $customer->id)->first();
+                if ($employee) {
+                    $this->employeeLedger->record(
+                        employee: $employee,
+                        type: EmployeeLedgerEntry::TYPE_PURCHASE,
+                        amount: (float) $order->total,
+                        note: __('فاتورة نقطة بيع #:no', ['no' => $order->number ?? $order->id]),
+                        sourceType: 'pos_order',
+                        sourceId: $order->id,
+                    );
+                }
+            }
 
             return $order->fresh(['items']);
         });
