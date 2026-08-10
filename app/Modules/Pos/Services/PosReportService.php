@@ -84,8 +84,13 @@ class PosReportService
         if ($wac > 0) {
             return $wac;
         }
+        // ملاحظة: cost_price عمود غير قابل للـnull (افتراضي 0)، لذا نتخطّى الصفر لا الـnull فقط.
+        $variantCost = (float) ($item->variant?->cost_price ?? 0);
+        if ($variantCost > 0) {
+            return $variantCost;
+        }
 
-        return (float) ($item->variant?->cost_price ?? $item->variant?->product?->cost_price ?? 0);
+        return (float) ($item->variant?->product?->cost_price ?? 0);
     }
 
     public function itemsSold(string $from, string $to, ?int $branchId = null): array
