@@ -7,6 +7,7 @@ use App\Modules\Catalog\Models\ProductAttribute;
 use App\Modules\Catalog\Models\ProductAttributeValue;
 use App\Modules\Catalog\Services\ProductVariantService;
 use App\Modules\Foundation\Models\Warehouse;
+use App\Modules\Inventory\Services\InventoryService;
 use App\Modules\Pos\Services\PosCatalogService;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -50,5 +51,20 @@ class PosCatalogServiceTest extends TestCase
         $sVariantId = $product->variants()->where('name', 'S')->value('id');
         $this->assertContains($sVariantId, $ids);        // النشط يظهر
         $this->assertNotContains($mVariantId, $ids);     // المُعطّل لا يظهر
+    }
+
+    public function test_search_excludes_zero_stock_variants(): void
+    {
+        $warehouse = Warehouse::where('is_default', true)->first() ?? Warehouse::orderBy('id')->first();
+
+        $inStock = Product::factory()->active()->create(['name' => 'متوفّر']);
+        app(InventoryService::class)->receive($inStock->defaultVariant, $warehouse, 3, 10);
+
+        $outOfStock = Product::factory()->active()->create(['name' => 'نافد']); // بلا مخزون
+
+        $ids = collect(app(PosCatalogService::class)->search($warehouse->id))->pluck('variant_id')->all();
+
+        $this->assertContains($inStock->defaultVariant->id, $ids);       // متوفّر → يظهر
+        $this->assertNotContains($outOfStock->defaultVariant->id, $ids); // نافد → لا يظهر
     }
 }
