@@ -84,6 +84,7 @@
         ]],
         ['الموظفون والعمولات', 'badge', [
             ['admin.users.index', 'المستخدمون', 'settings.users.view', 'admin.users.*'],
+            ['admin.employees.index', 'الموظفون', 'hr.employees.view', 'admin.employees.*'],
             ['admin.roles.index', 'الأدوار والصلاحيات', 'settings.roles.view', 'admin.roles.*'],
             ['admin.commissions.index', 'العمولات والأرباح', 'commissions.view_team', 'admin.commissions.*'],
         ]],

@@ -19,6 +19,7 @@ use App\Http\Controllers\Admin\Catalog\UnitController;
 use App\Http\Controllers\Admin\Commissions\CommissionController as AdminCommissionController;
 use App\Http\Controllers\Admin\Crm\CustomerController as AdminCustomerController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
+use App\Http\Controllers\Admin\Hr\EmployeeController as AdminEmployeeController;
 use App\Http\Controllers\Admin\Inventory\InventoryController;
 use App\Http\Controllers\Admin\Inventory\InventoryCountController as AdminInventoryCountController;
 use App\Http\Controllers\Admin\Inventory\StockAdjustmentController as AdminStockAdjustmentController;
@@ -364,6 +365,17 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::delete('{user}', [AdminUserController::class, 'destroy'])->name('destroy')->middleware('can:settings.users.delete');
         Route::post('{user}/toggle', [AdminUserController::class, 'toggleActive'])->name('toggle')->middleware('can:settings.users.update');
         Route::post('{user}/reset-password', [AdminUserController::class, 'resetPassword'])->name('reset_password')->middleware('can:settings.users.update');
+    });
+
+    // إدارة الموظفين (الرواتب/الذمم) — Production
+    Route::prefix('employees')->name('employees.')->group(function () {
+        Route::get('/', [AdminEmployeeController::class, 'index'])->name('index')->middleware('can:hr.employees.view');
+        Route::get('create', [AdminEmployeeController::class, 'create'])->name('create')->middleware('can:hr.employees.create');
+        Route::post('/', [AdminEmployeeController::class, 'store'])->name('store')->middleware('can:hr.employees.create');
+        Route::get('{employee}/edit', [AdminEmployeeController::class, 'edit'])->name('edit')->middleware('can:hr.employees.update');
+        Route::put('{employee}', [AdminEmployeeController::class, 'update'])->name('update')->middleware('can:hr.employees.update');
+        Route::post('{employee}/toggle', [AdminEmployeeController::class, 'toggleActive'])->name('toggle')->middleware('can:hr.employees.update');
+        Route::delete('{employee}', [AdminEmployeeController::class, 'destroy'])->name('destroy')->middleware('can:hr.employees.delete');
     });
 
     // إدارة الأدوار والصلاحيات (Production)
