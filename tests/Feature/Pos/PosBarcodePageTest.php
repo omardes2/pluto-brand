@@ -65,6 +65,17 @@ class PosBarcodePageTest extends TestCase
         $this->assertSame(1, $items->where('product', 'له باركود')->count());
     }
 
+    public function test_barcode_items_include_total_available_stock(): void
+    {
+        $product = Product::factory()->active()->create(['name' => 'صنف بمخزون', 'barcode' => 'STK-1']);
+        app(InventoryService::class)->receive($product->defaultVariant, $this->warehouse, 7, 10);
+
+        $row = collect(app(PosCatalogService::class)->barcodeItems())->firstWhere('barcode', 'STK-1');
+
+        $this->assertNotNull($row);
+        $this->assertSame(7.0, $row['stock']);
+    }
+
     public function test_scanning_a_sku_label_finds_the_variant(): void
     {
         $product = Product::factory()->active()->create();
