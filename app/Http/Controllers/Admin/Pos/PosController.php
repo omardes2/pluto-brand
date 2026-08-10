@@ -14,6 +14,9 @@ use App\Models\User;
 use App\Modules\Crm\Models\Customer;
 use App\Modules\Foundation\Models\Warehouse;
 use App\Modules\Foundation\Services\Settings;
+use App\Modules\Hr\Models\Employee;
+use App\Modules\Hr\Models\EmployeeLedgerEntry;
+use App\Modules\Hr\Services\EmployeeLedgerService;
 use App\Modules\Pos\Models\PosShift;
 use App\Modules\Pos\Models\PosShiftMovement;
 use App\Modules\Pos\Services\PosCatalogService;
@@ -33,6 +36,7 @@ class PosController extends Controller
         private readonly PosShiftService $shifts,
         private readonly PosCatalogService $catalog,
         private readonly PosReturnService $returns,
+        private readonly EmployeeLedgerService $employeeLedger,
     ) {}
 
     /** الوردية المفتوحة للكاشير الحالي (إن وُجدت). */
@@ -57,6 +61,7 @@ class PosController extends Controller
             'categories' => $this->catalog->categories(),
             'products' => $this->catalog->search($shift->warehouse_id),
             'defaultCustomer' => (string) Settings::get('pos.default_customer_name', 'عميل نقدي'),
+            'employees' => Employee::where('is_active', true)->orderBy('name')->get(['id', 'name', 'customer_id']),
         ]);
     }
 
@@ -133,7 +138,27 @@ class PosController extends Controller
         }
 
         $data = $request->validated();
-        $this->shifts->addExpense($shift, $data['category'], (float) $data['amount'], $data['note'] ?? null);
+        $amount = (float) $data['amount'];
+
+        // سلفة موظف: يُسجَّل السحب من الدرج + قيد «سلفة» في دفتر حساب الموظف.
+        $employee = ! empty($data['employee_id']) ? Employee::find($data['employee_id']) : null;
+        $category = $employee ? __('سلفة موظف') : $data['category'];
+        $note = $employee
+            ? trim($employee->name.($data['note'] ? ' — '.$data['note'] : ''))
+            : ($data['note'] ?? null);
+
+        $movement = $this->shifts->addExpense($shift, $category, $amount, $note);
+
+        if ($employee) {
+            $this->employeeLedger->record(
+                employee: $employee,
+                type: EmployeeLedgerEntry::TYPE_ADVANCE,
+                amount: $amount,
+                note: $data['note'] ?? __('سلفة عبر نقطة البيع'),
+                sourceType: 'pos_expense',
+                sourceId: $movement->id,
+            );
+        }
 
         return response()->json(['expected_cash' => $this->shifts->computeExpectedCash($shift->fresh())]);
     }
