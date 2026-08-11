@@ -112,8 +112,10 @@ class BusinessReportController extends Controller
     {
         $range = $this->range($request);
 
-        // تكلفة الوحدة الفعّالة: لقطة البيع ← متوسط التكلفة ← سعر التكلفة (NULLIF لتخطّي الصفر).
-        $effCost = 'COALESCE(NULLIF(order_items.wholesale_cost_snapshot,0), NULLIF(product_variants.average_cost,0), NULLIF(product_variants.cost_price,0), 0)';
+        // تكلفة الوحدة الفعّالة: لقطة البيع ← متوسط التكلفة ← سعر تكلفة المتغيّر ← سعر تكلفة المنتج
+        // (NULLIF لتخطّي الصفر). تُطابق سلسلة التراجُع في PosReportService::unitCost.
+        $effCost = 'COALESCE(NULLIF(order_items.wholesale_cost_snapshot,0), NULLIF(product_variants.average_cost,0), '
+            .'NULLIF(product_variants.cost_price,0), NULLIF(products.cost_price,0), 0)';
 
         // مبيعات إجمالية (قبل المرتجعات) + مرتجعات بفاتورة (returned_qty) لكل منتج.
         $rows = OrderItem::query()
@@ -146,6 +148,7 @@ class BusinessReportController extends Controller
             $grossQty = (float) $r->gross_qty;
             $grossSale = (float) $r->gross_sale;
             $grossCost = (float) $r->gross_cost;
+            $retQty = (float) $r->inv_ret_qty + (float) ($ni->ret_qty ?? 0);
             $retSale = (float) $r->inv_ret_sale + (float) ($ni->ret_sale ?? 0);
             $retCost = (float) $r->inv_ret_cost + (float) ($ni->ret_cost ?? 0);
             $netSale = $grossSale - $retSale;
@@ -153,7 +156,7 @@ class BusinessReportController extends Controller
 
             return [
                 'product' => $r->product_name,
-                'qty' => round($grossQty, 2),          // الكمية المباعة (فعلية قبل المرتجعات)
+                'qty' => round($grossQty - $retQty, 2), // الكمية المباعة صافية بعد خصم المرتجعات
                 'returns' => round($retSale, 2),        // المرتجعات
                 'sale_total' => round($netSale, 2),     // صافي البيع بعد المرتجعات
                 'avg_price' => $grossQty > 0 ? round($grossSale / $grossQty, 2) : 0.0,
