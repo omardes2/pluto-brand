@@ -98,33 +98,6 @@
                             <tr><td colspan="5" class="text-center text-gray-400 py-8">{{ __('لا مبيعات في هذه الوردية') }}</td></tr>
                         @endforelse
                     </tbody>
-                    @if (count($items))
-                        <tfoot>
-                            <tr class="border-t-2 border-gray-200 font-bold">
-                                <td class="px-4 py-2.5">{{ __('إجمالي المبيعات') }}</td>
-                                <td></td>
-                                <td class="px-4 py-2.5 text-end tabular-nums">{{ $m($totals['revenue']) }}</td>
-                                <td class="px-4 py-2.5 text-end tabular-nums text-gray-500">{{ $m($totals['cost']) }}</td>
-                                <td class="px-4 py-2.5 text-end tabular-nums text-gray-500">{{ $m($totals['gross_profit']) }}</td>
-                            </tr>
-                            @if (($totals['returns'] ?? 0) > 0)
-                                <tr class="text-red-700">
-                                    <td class="px-4 py-2">{{ __('إجمالي المرتجعات') }}</td>
-                                    <td></td>
-                                    <td class="px-4 py-2 text-end tabular-nums">− {{ $m($totals['returns']) }}</td>
-                                    <td class="px-4 py-2 text-end tabular-nums">− {{ $m($totals['returns_cost'] ?? 0) }}</td>
-                                    <td></td>
-                                </tr>
-                                <tr class="border-t border-gray-200 font-extrabold">
-                                    <td class="px-4 py-2.5">{{ __('صافي بعد المرتجعات') }}</td>
-                                    <td></td>
-                                    <td class="px-4 py-2.5 text-end tabular-nums">{{ $m($totals['net_sales']) }}</td>
-                                    <td class="px-4 py-2.5 text-end tabular-nums text-gray-500">{{ $m($totals['net_cost'] ?? $totals['cost']) }}</td>
-                                    <td class="px-4 py-2.5 text-end tabular-nums {{ $totals['profit'] < 0 ? 'text-red-700' : 'text-emerald-700' }}">{{ $m($totals['profit']) }}</td>
-                                </tr>
-                            @endif
-                        </tfoot>
-                    @endif
                 </table>
             </div>
         </div>
