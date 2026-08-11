@@ -96,6 +96,25 @@ class PosReturnsReportTest extends TestCase
         $this->assertSame(0.0, app(PosReportService::class)->shiftDetail($shift->fresh())['totals']['profit']);
     }
 
+    public function test_daily_summary_deducts_returns_from_net_sales(): void
+    {
+        $shift = $this->openShift();
+        app(PosSaleService::class)->sell($shift, [
+            'items' => [['variant_id' => $this->variant->id, 'qty' => 1, 'unit_price' => 150]],
+            'payment_method' => 'cash',
+        ]);
+        app(PosReturnService::class)->refundWithoutInvoice($shift, [
+            ['variant_id' => $this->variant->id, 'qty' => 1, 'unit_price' => 150],
+        ]);
+
+        $today = now()->toDateString();
+        $t = app(PosReportService::class)->dailySummary($today, $today)['totals'];
+
+        $this->assertSame(150.0, $t['total_sales']); // إجمالي المبيعات (قبل المرتجعات)
+        $this->assertSame(150.0, $t['refunds']);     // المرتجعات
+        $this->assertSame(0.0, $t['net_sales']);     // صافي المبيعات بعد المرتجعات
+    }
+
     public function test_no_invoice_return_uses_cost_price_when_wac_is_zero(): void
     {
         // صنف تكلفته في cost_price لا في WAC (average_cost=0) — كحالة الإنتاج.
