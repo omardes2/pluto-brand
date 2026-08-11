@@ -128,6 +128,7 @@
                 <th>{{ __('المستخدم') }}</th>
                 @if ($context !== 'pos')<th>{{ __('حالة أوبتيموس') }}</th>@endif
                 <th>{{ __('حالة الدفع') }}</th>
+                <th class="text-start">{{ __('الخصم') }}</th>
                 <th class="text-start">{{ __('الإجمالي') }}</th>
                 <th></th>
             </tr>
@@ -202,6 +203,13 @@
                         @if ($o->payment_status === 'partially_paid')
                             @php $rem = max(0, round((float) $o->total - (float) $o->amount_paid, 2)); @endphp
                             <span class="block text-[11px] text-gray-400 mt-0.5">{{ __('المتبقّي') }}: {{ number_format($rem, 2) }}</span>
+                        @endif
+                    </td>
+                    <td class="text-start tabular-nums whitespace-nowrap">
+                        @if ((float) $o->discount_total > 0)
+                            <span class="text-red-600">− {{ number_format($o->discount_total, 2) }} {{ \App\Modules\Foundation\Services\Settings::get('store.currency_symbol', '₪') }}</span>
+                        @else
+                            <span class="text-gray-300">—</span>
                         @endif
                     </td>
                     <td class="text-start font-medium tabular-nums whitespace-nowrap">{{ number_format($o->total, 2) }} {{ \App\Modules\Foundation\Services\Settings::get('store.currency_symbol', '₪') }}</td>
@@ -283,7 +291,7 @@
                     </td>
                 </tr>
             @empty
-                @php($cols = (auth()->user()?->can('sales.orders.delete') ? 9 : 8) - ($context === 'pos' ? 1 : 0))
+                @php($cols = (auth()->user()?->can('sales.orders.delete') ? 10 : 9) - ($context === 'pos' ? 1 : 0))
                 <tr><td colspan="{{ $cols }}" class="!p-0">
                     <x-admin.empty-state
                         :title="__('لا توجد طلبات')"
