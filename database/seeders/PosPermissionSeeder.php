@@ -22,9 +22,9 @@ class PosPermissionSeeder extends Seeder
         'pos.view', 'pos.sell', 'pos.discount', 'pos.refund', 'pos.refund.no_invoice', 'pos.shift.manage', 'pos.reports.view',
     ];
 
-    /** قدرات الكاشير الأساسية (بلا الخصم ولا الإرجاع دون فاتورة — للمدير/المشرف فقط). */
+    /** قدرات الكاشير الأساسية (بلا الإرجاع دون فاتورة — للمدير/المشرف فقط). */
     private array $cashierAbilities = [
-        'pos.view', 'pos.sell', 'pos.refund', 'pos.shift.manage',
+        'pos.view', 'pos.sell', 'pos.discount', 'pos.refund', 'pos.shift.manage',
     ];
 
     public function run(): void
@@ -52,13 +52,6 @@ class PosPermissionSeeder extends Seeder
         // موظف المبيعات يمكنه العمل ككاشير (القدرات الأساسية دون الإرجاع بلا فاتورة).
         if ($sales = Role::where('name', 'sales')->first()) {
             $sales->givePermissionTo($this->cashierAbilities);
-        }
-
-        // الخصم للمدير فقط: سحب pos.discount ممّن قد يملكه من إعدادات سابقة.
-        foreach (['cashier', 'sales'] as $roleName) {
-            if ($role = Role::where('name', $roleName)->first()) {
-                $role->revokePermissionTo('pos.discount');
-            }
         }
     }
 }

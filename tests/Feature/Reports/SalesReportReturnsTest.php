@@ -7,6 +7,7 @@ use App\Modules\Catalog\Models\Product;
 use App\Modules\Catalog\Models\ProductVariant;
 use App\Modules\Foundation\Models\Warehouse;
 use App\Modules\Inventory\Services\InventoryService;
+use App\Modules\Pos\Models\PosShift;
 use App\Modules\Pos\Services\PosReturnService;
 use App\Modules\Pos\Services\PosSaleService;
 use App\Modules\Pos\Services\PosShiftService;
@@ -50,8 +51,36 @@ class SalesReportReturnsTest extends TestCase
     {
         $res = $this->get(route('admin.reports.sales.by_product'))->assertOk();
         $res->assertViewHas('totalReturns', fn ($v) => abs($v - 150) < 0.01);
-        $res->assertViewHas('totalSales', fn ($v) => abs($v - 150) < 0.01);   // 300 − 150
-        $res->assertViewHas('totalQty', fn ($v) => abs($v - 1) < 0.01);       // 2 − 1
+        $res->assertViewHas('totalSales', fn ($v) => abs($v - 150) < 0.01);   // 300 − 150 (صافي)
+        $res->assertViewHas('totalQty', fn ($v) => abs($v - 2) < 0.01);       // الكمية المباعة الفعلية
+        $res->assertViewHas('totalProfit', fn ($v) => abs($v - 90) < 0.01);   // (300−150) − (120−60)
+    }
+
+    public function test_sales_by_product_profit_uses_cost_price_fallback(): void
+    {
+        // صنف تكلفته في cost_price لا في WAC — كان يُنتج ربحًا خاطئًا موجبًا.
+        $v = Product::factory()->create(['name' => 'صنف تكلفة السعر'])->defaultVariant;
+        $v->update(['wholesale_price' => 0]);
+        Product::whereKey($v->product_id)->update(['is_active' => true, 'status' => 'active']);
+        app(InventoryService::class)->receive($v, $this->warehouse, 5, 0); // WAC = 0
+        $v->update(['cost_price' => 60]);
+
+        $shift = PosShift::where('status', 'open')->latest('id')->firstOrFail();
+        app(PosSaleService::class)->sell($shift, [
+            'items' => [['variant_id' => $v->id, 'qty' => 1, 'unit_price' => 150]],
+            'payment_method' => 'cash',
+        ]);
+        app(PosReturnService::class)->refundWithoutInvoice($shift, [
+            ['variant_id' => $v->id, 'qty' => 1, 'unit_price' => 150],
+        ]);
+
+        $res = $this->get(route('admin.reports.sales.by_product'))->assertOk();
+        $row = collect($res->viewData('rows'))->firstWhere('product', 'صنف تكلفة السعر');
+        $this->assertNotNull($row);
+        $this->assertEqualsWithDelta(1, $row['qty'], 0.01);        // بيع 1 (فعلي)
+        $this->assertEqualsWithDelta(150, $row['returns'], 0.01);  // مرتجع 150
+        $this->assertEqualsWithDelta(0, $row['sale_total'], 0.01); // صافي 0
+        $this->assertEqualsWithDelta(0, $row['profit'], 0.01);     // كان 60 خطأً
     }
 
     public function test_sales_by_customer_deducts_returns_from_cash(): void
