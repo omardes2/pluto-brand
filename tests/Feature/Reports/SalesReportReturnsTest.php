@@ -52,18 +52,18 @@ class SalesReportReturnsTest extends TestCase
         $res = $this->get(route('admin.reports.sales.by_product'))->assertOk();
         $res->assertViewHas('totalReturns', fn ($v) => abs($v - 150) < 0.01);
         $res->assertViewHas('totalSales', fn ($v) => abs($v - 150) < 0.01);   // 300 − 150 (صافي)
-        $res->assertViewHas('totalQty', fn ($v) => abs($v - 2) < 0.01);       // الكمية المباعة الفعلية
+        $res->assertViewHas('totalQty', fn ($v) => abs($v - 1) < 0.01);       // 2 مباع − 1 مرتجع (صافي)
         $res->assertViewHas('totalProfit', fn ($v) => abs($v - 90) < 0.01);   // (300−150) − (120−60)
     }
 
-    public function test_sales_by_product_profit_uses_cost_price_fallback(): void
+    public function test_sales_by_product_profit_uses_product_cost_price_fallback(): void
     {
-        // صنف تكلفته في cost_price لا في WAC — كان يُنتج ربحًا خاطئًا موجبًا.
-        $v = Product::factory()->create(['name' => 'صنف تكلفة السعر'])->defaultVariant;
-        $v->update(['wholesale_price' => 0]);
-        Product::whereKey($v->product_id)->update(['is_active' => true, 'status' => 'active']);
+        // تكلفة الصنف في products.cost_price فقط (WAC وتكلفة المتغيّر صفر) — كحالة الإنتاج
+        // التي أنتجت ربحًا خاطئًا موجبًا (60) لأن تكلفة البيع لم تتراجع لتكلفة المنتج.
+        $v = Product::factory()->create(['name' => 'صنف تكلفة المنتج'])->defaultVariant;
+        $v->update(['wholesale_price' => 0, 'cost_price' => 0]);
+        Product::whereKey($v->product_id)->update(['is_active' => true, 'status' => 'active', 'cost_price' => 60]);
         app(InventoryService::class)->receive($v, $this->warehouse, 5, 0); // WAC = 0
-        $v->update(['cost_price' => 60]);
 
         $shift = PosShift::where('status', 'open')->latest('id')->firstOrFail();
         app(PosSaleService::class)->sell($shift, [
@@ -75,9 +75,9 @@ class SalesReportReturnsTest extends TestCase
         ]);
 
         $res = $this->get(route('admin.reports.sales.by_product'))->assertOk();
-        $row = collect($res->viewData('rows'))->firstWhere('product', 'صنف تكلفة السعر');
+        $row = collect($res->viewData('rows'))->firstWhere('product', 'صنف تكلفة المنتج');
         $this->assertNotNull($row);
-        $this->assertEqualsWithDelta(1, $row['qty'], 0.01);        // بيع 1 (فعلي)
+        $this->assertEqualsWithDelta(0, $row['qty'], 0.01);        // 1 مباع − 1 مرتجع (صافي)
         $this->assertEqualsWithDelta(150, $row['returns'], 0.01);  // مرتجع 150
         $this->assertEqualsWithDelta(0, $row['sale_total'], 0.01); // صافي 0
         $this->assertEqualsWithDelta(0, $row['profit'], 0.01);     // كان 60 خطأً
