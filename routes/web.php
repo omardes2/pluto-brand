@@ -340,7 +340,6 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::get('shifts/{shift}', [PosReportController::class, 'shiftDetail'])->name('shifts.show')->middleware('can:pos.reports.view');
         Route::get('shifts/{shift}/receipt', [PosReportController::class, 'shiftReceipt'])->name('shifts.receipt')->middleware('can:pos.shift.manage');
         Route::get('items', [PosReportController::class, 'items'])->name('items')->middleware('can:pos.reports.view');
-        Route::get('cashiers', [PosReportController::class, 'cashiers'])->name('cashiers')->middleware('can:pos.reports.view');
         Route::get('expenses', [PosReportController::class, 'expenses'])->name('expenses')->middleware('can:pos.reports.view');
         Route::get('expense-types', [PosReportController::class, 'expenseTypes'])->name('expense_types')->middleware('can:pos.reports.view');
         Route::post('expense-types', [PosReportController::class, 'saveExpenseTypes'])->name('expense_types.save')->middleware('can:pos.reports.view');
