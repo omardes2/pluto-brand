@@ -22,6 +22,8 @@
             <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
                 @foreach ([
                     ['إجمالي المبيعات', $t['total_sales'], 'text-gray-800'],
+                    ['المرتجعات', $t['refunds'] ?? 0, 'text-red-700'],
+                    ['صافي المبيعات', $t['net_sales'] ?? $t['total_sales'], 'text-emerald-700'],
                     ['المدفوعات النقدية', $t['cash'], 'text-emerald-700'],
                     ['المدفوعات بالبطاقة', $t['card'], 'text-sky-700'],
                     ['الذمم (آجل)', $t['credit'], 'text-amber-700'],
@@ -46,6 +48,8 @@
                             <th class="text-start">{{ __('التاريخ') }}</th>
                             <th class="text-end">{{ __('الفواتير') }}</th>
                             <th class="text-end">{{ __('إجمالي المبيعات') }}</th>
+                            <th class="text-end">{{ __('المرتجعات') }}</th>
+                            <th class="text-end">{{ __('صافي المبيعات') }}</th>
                             <th class="text-end">{{ __('نقدي') }}</th>
                             <th class="text-end">{{ __('بطاقة') }}</th>
                             <th class="text-end">{{ __('الذمم') }}</th>
@@ -59,6 +63,8 @@
                                 <td class="px-4 py-2.5 font-semibold tabular-nums">{{ $day['date'] }}</td>
                                 <td class="px-4 py-2.5 text-end tabular-nums">{{ number_format((float) $day['orders'], 0) }}</td>
                                 <td class="px-4 py-2.5 text-end tabular-nums font-bold">{{ $m($day['total_sales']) }}</td>
+                                <td class="px-4 py-2.5 text-end tabular-nums text-red-700">{{ ($day['refunds'] ?? 0) > 0 ? '− '.$m($day['refunds']) : '—' }}</td>
+                                <td class="px-4 py-2.5 text-end tabular-nums font-bold text-emerald-700">{{ $m($day['net_sales'] ?? $day['total_sales']) }}</td>
                                 <td class="px-4 py-2.5 text-end tabular-nums text-emerald-700">{{ $m($day['cash']) }}</td>
                                 <td class="px-4 py-2.5 text-end tabular-nums text-sky-700">{{ $m($day['card']) }}</td>
                                 <td class="px-4 py-2.5 text-end tabular-nums text-amber-700">{{ $m($day['credit']) }}</td>
@@ -66,7 +72,7 @@
                                 <td class="px-4 py-2.5 text-end tabular-nums font-bold">{{ $m($day['net']) }}</td>
                             </tr>
                         @empty
-                            <tr><td colspan="8" class="text-center text-gray-400 py-8">{{ __('لا توجد بيانات في هذه الفترة') }}</td></tr>
+                            <tr><td colspan="10" class="text-center text-gray-400 py-8">{{ __('لا توجد بيانات في هذه الفترة') }}</td></tr>
                         @endforelse
                     </tbody>
                 </table>

@@ -430,11 +430,12 @@ class PosReportService
         $row = [
             'orders' => $orders,
             'total_sales' => round($cash + $card + $credit, 2),
+            'refunds' => round($refunds, 2),
+            'net_sales' => round($cash + $card + $credit - $refunds, 2), // صافي المبيعات بعد المرتجعات
             'cash' => round($cash, 2),
             'card' => round($card, 2),
             'credit' => round($credit, 2),
             'expenses' => round($expenses, 2),
-            'refunds' => round($refunds, 2),
             // الرصيد النهائي = صافي النقد الناتج = نقدي + إيداعات − مصروفات − مرتجعات نقدية (الذمم لا تدخل النقد).
             'net' => round($cash + $payIn - $expenses - $refunds, 2),
         ];
