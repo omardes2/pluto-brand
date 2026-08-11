@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Modules\Catalog\Models\ProductVariant;
 use App\Modules\Inventory\Models\InventoryMovement;
 use App\Modules\Pos\Models\PosReturnLine;
 use App\Modules\Pos\Models\PosShift;
@@ -76,13 +77,17 @@ class BackfillNoInvoiceReturnLines extends Command
         foreach ($plan as $p) {
             DB::transaction(function () use ($p, &$created) {
                 foreach ($p['rows'] as $mv) {
+                    $cost = (float) $mv->unit_cost;
+                    if ($cost <= 0) {
+                        $cost = (float) (ProductVariant::whereKey($mv->variant_id)->value('average_cost') ?? 0);
+                    }
                     PosReturnLine::create([
                         'pos_shift_id' => $p['shift']->id,
                         'order_id' => null,
                         'variant_id' => $mv->variant_id,
                         'qty' => (float) $mv->qty,
                         'unit_price' => $p['unit_price'],
-                        'unit_cost' => (float) ($mv->unit_cost ?: 0),
+                        'unit_cost' => $cost,
                         'created_at' => $mv->created_at ?? now(),
                     ]);
                     $created++;

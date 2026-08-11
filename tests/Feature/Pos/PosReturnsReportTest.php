@@ -7,6 +7,7 @@ use App\Modules\Catalog\Models\Product;
 use App\Modules\Catalog\Models\ProductVariant;
 use App\Modules\Foundation\Models\Warehouse;
 use App\Modules\Inventory\Services\InventoryService;
+use App\Modules\Pos\Models\PosReturnLine;
 use App\Modules\Pos\Models\PosShift;
 use App\Modules\Pos\Services\PosReportService;
 use App\Modules\Pos\Services\PosReturnService;
@@ -69,6 +70,30 @@ class PosReturnsReportTest extends TestCase
         $this->assertSame(0.0, $t['net_sales']);       // صافي المبيعات
         $this->assertSame(0.0, $t['net_cost']);        // صافي التكلفة
         $this->assertSame(0.0, $t['profit']);          // ربح الوردية = 0 (كان -60)
+    }
+
+    public function test_backfill_command_recreates_missing_return_lines_with_wac_cost(): void
+    {
+        $shift = $this->openShift();
+        app(PosSaleService::class)->sell($shift, [
+            'items' => [['variant_id' => $this->variant->id, 'qty' => 1, 'unit_price' => 150]],
+            'payment_method' => 'cash',
+        ]);
+        app(PosReturnService::class)->refundWithoutInvoice($shift, [
+            ['variant_id' => $this->variant->id, 'qty' => 1, 'unit_price' => 150],
+        ]);
+
+        // محاكاة بيانات قديمة قبل الجدول: حذف بنود المرتجع (تبقى حركة المخزون).
+        PosReturnLine::query()->delete();
+        // بلا بنود مرتجع يظهر الربح كاملًا (خطأ) 90.
+        $this->assertSame(90.0, app(PosReportService::class)->shiftDetail($shift->fresh())['totals']['profit']);
+
+        $this->artisan('pos:backfill-noinvoice-returns', ['--force' => true])->assertOk();
+
+        $line = PosReturnLine::firstOrFail();
+        $this->assertEquals(150, (float) $line->unit_price);
+        $this->assertEquals(60, (float) $line->unit_cost);   // WAC (حركة المخزون بلا تكلفة)
+        $this->assertSame(0.0, app(PosReportService::class)->shiftDetail($shift->fresh())['totals']['profit']);
     }
 
     public function test_items_report_nets_no_invoice_returns(): void
