@@ -78,18 +78,6 @@ class PosReportController extends Controller
         ]);
     }
 
-    /** كشف مبيعات الكاشيرين حسب اليوم/التاريخ. */
-    public function cashiers(Request $request)
-    {
-        [$from, $to] = $this->range($request);
-
-        return view('admin.pos.cashiers', [
-            'from' => $from,
-            'to' => $to,
-            'data' => $this->reports->cashierSales($from, $to),
-        ]);
-    }
-
     /** كشف المصروفات في مدى تاريخي. */
     public function expenses(Request $request)
     {
