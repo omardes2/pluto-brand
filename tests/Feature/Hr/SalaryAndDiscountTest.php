@@ -65,11 +65,11 @@ class SalaryAndDiscountTest extends TestCase
         $this->assertDatabaseHas('employee_ledger_entries', ['type' => 'salary_accrual', 'amount' => 1800]);
     }
 
-    public function test_cashier_cannot_apply_discount(): void
+    public function test_cashier_can_apply_discount(): void
     {
         $cashier = User::factory()->create(['branch_id' => $this->admin()->branch_id]);
         $cashier->assignRole(Role::findOrCreate('cashier', 'web'));
-        $this->assertFalse($cashier->can('pos.discount'));
+        $this->assertTrue($cashier->can('pos.discount'));
 
         $this->actingAs($cashier);
         $this->post(route('admin.pos.shift.open'), ['warehouse_id' => $this->warehouse->id, 'opening_float' => 100]);
@@ -78,7 +78,7 @@ class SalaryAndDiscountTest extends TestCase
             'items' => [['variant_id' => $this->variant->id, 'qty' => 1, 'unit_price' => 20]],
             'payment_method' => 'cash',
             'discount' => 5,
-        ])->assertForbidden();
+        ])->assertOk()->assertJsonPath('discount_total', 5);
     }
 
     public function test_manager_can_apply_discount(): void
