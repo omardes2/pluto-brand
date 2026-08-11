@@ -5,6 +5,7 @@ namespace App\Modules\Pos\Services;
 use App\Modules\Catalog\Models\ProductVariant;
 use App\Modules\Foundation\Models\Warehouse;
 use App\Modules\Inventory\Services\InventoryService;
+use App\Modules\Pos\Models\PosReturnLine;
 use App\Modules\Pos\Models\PosShift;
 use App\Modules\Returns\Models\ReturnRequest;
 use App\Modules\Returns\Services\ReturnService;
@@ -61,6 +62,17 @@ class PosReturnService
                     $this->inventory->returnToStock($variant, $warehouse, $qty, null, $opts);
                 }
 
+                // بند مرتجع قابل للاستعلام — لخصم المبيعات والتكلفة في التقارير.
+                PosReturnLine::create([
+                    'pos_shift_id' => $shift->id,
+                    'order_id' => null,
+                    'variant_id' => $variant->id,
+                    'qty' => $qty,
+                    'unit_price' => $unitPrice,
+                    'unit_cost' => (float) ($variant->average_cost ?: $variant->cost_price ?: 0),
+                    'created_at' => now(),
+                ]);
+
                 $refund += $qty * $unitPrice;
             }
             $refund = round($refund, 2);
@@ -89,7 +101,7 @@ class PosReturnService
             throw ValidationException::withMessages(['items' => __('حدّد صنفًا واحدًا على الأقل للإرجاع.')]);
         }
 
-        $order->loadMissing('items');
+        $order->loadMissing('items.variant');
 
         return DB::transaction(function () use ($shift, $order, $lines, $reasonCode, $note) {
             $data = [
@@ -125,6 +137,8 @@ class PosReturnService
             $this->rma->complete($request);
 
             // مبلغ الاسترداد = Σ(كمية × سعر الوحدة وقت البيع) من بنود المرتجع.
+            // ملاحظة: الإرجاع بفاتورة يُخصم في التقارير عبر returned_qty على بنود الطلب،
+            // فلا يُسجَّل هنا في pos_return_lines (المخصّص للإرجاع بدون فاتورة) تفاديًا للازدواج.
             $refund = round((float) $request->items->sum(fn ($ri) => (float) $ri->qty * (float) $ri->unit_price_snapshot), 2);
 
             // استرداد نقدي من الدرج (حركة refund تُخفّض النقد المتوقّع).
