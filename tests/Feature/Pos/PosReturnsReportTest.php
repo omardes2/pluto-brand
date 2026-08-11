@@ -135,11 +135,18 @@ class PosReturnsReportTest extends TestCase
 
         $today = now()->toDateString();
         $report = app(PosReportService::class)->itemsSold($today, $today);
+        $t = $report['totals'];
 
-        $this->assertSame(1.0, $report['totals']['qty']);       // 2 مباع − 1 مرتجع
-        $this->assertSame(150.0, $report['totals']['revenue']); // 300 − 150
-        $this->assertSame(150.0, $report['totals']['returns']);
-        $this->assertSame(60.0, $report['totals']['cost']);     // 120 − 60
-        $this->assertSame(90.0, $report['totals']['profit']);
+        $this->assertSame(2.0, $t['qty']);          // إجمالي المباع
+        $this->assertSame(1.0, $t['returned_qty']); // كمية المرتجعات
+        $this->assertSame(300.0, $t['revenue']);    // إجمالي المبيعات
+        $this->assertSame(150.0, $t['returns']);    // إجمالي المرتجعات
+        $this->assertSame(150.0, $t['net_sales']);  // صافي المبيعات
+        $this->assertSame(90.0, $t['profit']);      // (300−150) − (120−60)
+
+        // صفّ إرجاع مستقل موجود.
+        $returnRow = collect($report['rows'])->firstWhere('is_return', true);
+        $this->assertNotNull($returnRow);
+        $this->assertSame(-150.0, $returnRow['revenue']);
     }
 }

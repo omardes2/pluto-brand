@@ -116,73 +116,93 @@ class PosReportService
             ->with('items.variant.product')
             ->get();
 
-        $items = [];
+        $sales = [];
+        $returns = [];
+        $revenue = 0.0;
+        $cost = 0.0;
+        $returnsRevenue = 0.0;
+        $returnsCost = 0.0;
+        $qtySold = 0.0;
+        $qtyReturned = 0.0;
+
+        $addReturn = function ($key, string $name, string $sku, float $qty, float $rRev, float $rCost) use (&$returns, &$returnsRevenue, &$returnsCost, &$qtyReturned) {
+            if (! isset($returns[$key])) {
+                $returns[$key] = ['name' => $name, 'sku' => $sku, 'qty' => 0.0, 'revenue' => 0.0, 'cost' => 0.0, 'is_return' => true];
+            }
+            $returns[$key]['qty'] += $qty;
+            $returns[$key]['revenue'] += $rRev;
+            $returns[$key]['cost'] += $rCost;
+            $returnsRevenue += $rRev;
+            $returnsCost += $rCost;
+            $qtyReturned += $qty;
+        };
+
         foreach ($orders as $order) {
             foreach ($order->items as $it) {
-                $qty = (float) $it->qty; // إجمالي المباع
+                $qty = (float) $it->qty;
                 if ($qty <= 0) {
                     continue;
                 }
                 $unitCost = $this->unitCost($it);
                 $lineRev = $qty * (float) $it->unit_price - (float) $it->discount;
                 $lineCost = $qty * $unitCost;
+                $revenue += $lineRev;
+                $cost += $lineCost;
+                $qtySold += $qty;
 
                 $key = $it->variant_id;
-                if (! isset($items[$key])) {
-                    $items[$key] = ['name' => $this->variantLabel($it->variant), 'sku' => $it->variant?->sku ?? '—',
-                        'qty' => 0.0, 'revenue' => 0.0, 'cost' => 0.0, 'returned_qty' => 0.0, 'returns' => 0.0];
+                if (! isset($sales[$key])) {
+                    $sales[$key] = ['name' => $this->variantLabel($it->variant), 'sku' => $it->variant?->sku ?? '—',
+                        'qty' => 0.0, 'revenue' => 0.0, 'cost' => 0.0, 'is_return' => false];
                 }
-                $items[$key]['qty'] += $qty;
-                $items[$key]['revenue'] += $lineRev;
-                $items[$key]['cost'] += $lineCost;
+                $sales[$key]['qty'] += $qty;
+                $sales[$key]['revenue'] += $lineRev;
+                $sales[$key]['cost'] += $lineCost;
 
-                // إرجاع بفاتورة (returned_qty) — يُخصم من المبيعات والتكلفة والكمية.
+                // إرجاع بفاتورة (returned_qty) — صفّ إرجاع مستقل.
                 $retQty = (float) $it->returned_qty;
                 if ($retQty > 0) {
                     $retDiscount = $qty > 0 ? (float) $it->discount * ($retQty / $qty) : 0.0;
-                    $rRev = $retQty * (float) $it->unit_price - $retDiscount;
-                    $items[$key]['qty'] -= $retQty;
-                    $items[$key]['revenue'] -= $rRev;
-                    $items[$key]['cost'] -= $retQty * $unitCost;
-                    $items[$key]['returned_qty'] += $retQty;
-                    $items[$key]['returns'] += $rRev;
+                    $addReturn($key, $this->variantLabel($it->variant), $it->variant?->sku ?? '—', $retQty,
+                        round($retQty * (float) $it->unit_price - $retDiscount, 2), round($retQty * $unitCost, 2));
                 }
             }
         }
 
-        // خصم المرتجعات بدون فاتورة لكل صنف — من المبيعات والتكلفة والكمية.
+        // إرجاع بدون فاتورة — صفّ إرجاع مستقل لكل صنف.
         foreach ($this->returnsByVariant($from, $to, $branchId) as $variantId => $ret) {
-            if (! isset($items[$variantId])) {
-                $items[$variantId] = ['name' => $ret['name'], 'sku' => $ret['sku'],
-                    'qty' => 0.0, 'revenue' => 0.0, 'cost' => 0.0, 'returned_qty' => 0.0, 'returns' => 0.0];
-            }
-            $items[$variantId]['qty'] -= $ret['qty'];
-            $items[$variantId]['revenue'] -= $ret['revenue'];
-            $items[$variantId]['cost'] -= $ret['cost'];
-            $items[$variantId]['returned_qty'] += $ret['qty'];
-            $items[$variantId]['returns'] += $ret['revenue'];
+            $addReturn($variantId, $ret['name'], $ret['sku'], (float) $ret['qty'], round((float) $ret['revenue'], 2), round((float) $ret['cost'], 2));
         }
 
-        $items = array_map(function ($r) {
-            $r['qty'] = round($r['qty'], 2);
-            $r['revenue'] = round($r['revenue'], 2);
-            $r['cost'] = round($r['cost'], 2);
-            $r['returned_qty'] = round($r['returned_qty'], 2);
-            $r['returns'] = round($r['returns'], 2);
-            $r['profit'] = round($r['revenue'] - $r['cost'], 2);
+        // صفوف العرض: المبيعات (موجبة) ثم المرتجعات (سالبة) بنفس طريقة المبيعات.
+        $rows = [];
+        foreach ($sales as $r) {
+            $rows[] = ['name' => $r['name'], 'sku' => $r['sku'], 'qty' => round($r['qty'], 2),
+                'revenue' => round($r['revenue'], 2), 'cost' => round($r['cost'], 2),
+                'profit' => round($r['revenue'] - $r['cost'], 2), 'is_return' => false];
+        }
+        foreach ($returns as $r) {
+            $rows[] = ['name' => $r['name'], 'sku' => $r['sku'], 'qty' => round($r['qty'], 2),
+                'revenue' => -round($r['revenue'], 2), 'cost' => -round($r['cost'], 2),
+                'profit' => -round($r['revenue'] - $r['cost'], 2), 'is_return' => true];
+        }
 
-            return $r;
-        }, array_values($items));
-        usort($items, fn ($a, $b) => $b['revenue'] <=> $a['revenue']);
+        $returnsRevenue = round($returnsRevenue, 2);
+        $returnsCost = round($returnsCost, 2);
 
         return [
-            'rows' => $items,
+            'rows' => $rows,
             'totals' => [
-                'qty' => round(array_sum(array_column($items, 'qty')), 2),
-                'revenue' => round(array_sum(array_column($items, 'revenue')), 2),
-                'cost' => round(array_sum(array_column($items, 'cost')), 2),
-                'returns' => round(array_sum(array_column($items, 'returns')), 2),
-                'profit' => round(array_sum(array_column($items, 'profit')), 2),
+                'qty' => round($qtySold, 2),                       // الكمية المباعة (إجمالي)
+                'returned_qty' => round($qtyReturned, 2),          // كمية المرتجعات
+                'net_qty' => round($qtySold - $qtyReturned, 2),
+                'revenue' => round($revenue, 2),                   // إجمالي المبيعات
+                'returns' => $returnsRevenue,                      // إجمالي المرتجعات
+                'net_sales' => round($revenue - $returnsRevenue, 2),
+                'cost' => round($cost, 2),
+                'returns_cost' => $returnsCost,
+                'net_cost' => round($cost - $returnsCost, 2),
+                'profit' => round(($revenue - $returnsRevenue) - ($cost - $returnsCost), 2),
             ],
         ];
     }
