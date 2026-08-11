@@ -15,6 +15,7 @@ use App\Modules\Sales\Models\OrderItem;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
@@ -31,6 +32,23 @@ class BusinessReportController extends Controller
     {
         $range = $this->range($request);
 
+        // مرتجعات بفاتورة لكل زبون (قيمة returned_qty، خصم موزّع تناسبيًا).
+        $retExpr = 'SUM(oi.returned_qty * oi.unit_price - oi.discount * oi.returned_qty / NULLIF(oi.qty, 0))';
+        $regReturns = DB::table('order_items as oi')->join('orders as o', 'o.id', '=', 'oi.order_id')
+            ->whereNotNull('o.customer_id')->whereNotIn('o.status', self::EXCLUDED_STATUSES)
+            ->whereBetween('o.created_at', [$range->from, $range->to])
+            ->groupBy('o.customer_id')->selectRaw('o.customer_id, '.$retExpr.' as ret')
+            ->pluck('ret', 'o.customer_id');
+        $guestReturns = DB::table('order_items as oi')->join('orders as o', 'o.id', '=', 'oi.order_id')
+            ->whereNull('o.customer_id')->whereNotIn('o.status', self::EXCLUDED_STATUSES)
+            ->whereBetween('o.created_at', [$range->from, $range->to])
+            ->groupBy('o.customer_name')->selectRaw('o.customer_name, '.$retExpr.' as ret')
+            ->pluck('ret', 'o.customer_name');
+        // مرتجعات بدون فاتورة → تُخصم من زبون نقدي (لا ترتبط بزبون).
+        $noInvoiceReturns = (float) DB::table('pos_return_lines')
+            ->whereBetween('created_at', [$range->from, $range->to])->sum(DB::raw('qty * unit_price'));
+        $cashName = (string) Settings::get('pos.default_customer_name', 'عميل نقدي');
+
         $registered = Order::query()
             ->whereNotNull('customer_id')
             ->whereNotIn('status', self::EXCLUDED_STATUSES)
@@ -41,11 +59,16 @@ class BusinessReportController extends Controller
 
         $names = Customer::whereIn('id', $registered->pluck('customer_id'))->pluck('name', 'id');
 
-        $rows = $registered->map(fn ($r) => [
-            'name' => $names[$r->customer_id] ?? ('#'.$r->customer_id),
-            'orders_count' => (int) $r->orders_count,
-            'sales_total' => (float) $r->sales_total,
-        ]);
+        $rows = $registered->map(function ($r) use ($names, $regReturns) {
+            $returns = (float) ($regReturns[$r->customer_id] ?? 0);
+
+            return [
+                'name' => $names[$r->customer_id] ?? ('#'.$r->customer_id),
+                'orders_count' => (int) $r->orders_count,
+                'returns' => round($returns, 2),
+                'sales_total' => round((float) $r->sales_total - $returns, 2),
+            ];
+        });
 
         $guests = Order::query()
             ->whereNull('customer_id')
@@ -54,22 +77,32 @@ class BusinessReportController extends Controller
             ->selectRaw('customer_name, COUNT(*) as orders_count, SUM(total) as sales_total')
             ->groupBy('customer_name')
             ->get()
-            ->map(fn ($r) => [
-                'name' => $r->customer_name ?: __('زبون نقدي'),
-                'orders_count' => (int) $r->orders_count,
-                'sales_total' => (float) $r->sales_total,
-            ]);
+            ->map(function ($r) use ($guestReturns, $noInvoiceReturns, $cashName) {
+                $name = $r->customer_name ?: $cashName;
+                $returns = (float) ($guestReturns[$r->customer_name] ?? 0);
+                if ($name === $cashName) {
+                    $returns += $noInvoiceReturns; // مرتجعات بدون فاتورة على زبون نقدي
+                }
+
+                return [
+                    'name' => $name,
+                    'orders_count' => (int) $r->orders_count,
+                    'returns' => round($returns, 2),
+                    'sales_total' => round((float) $r->sales_total - $returns, 2),
+                ];
+            });
 
         $rows = $rows->concat($guests)->sortByDesc('sales_total')->values();
 
         if ($request->query('export') === 'csv') {
-            return $this->csv('sales-by-customer', [__('الزبون'), __('عدد الطلبات'), __('مجموع المبيعات')],
-                $rows->map(fn ($r) => [$r['name'], $r['orders_count'], number_format($r['sales_total'], 2, '.', '')]));
+            return $this->csv('sales-by-customer', [__('الزبون'), __('عدد الطلبات'), __('المرتجعات'), __('صافي المبيعات')],
+                $rows->map(fn ($r) => [$r['name'], $r['orders_count'], number_format($r['returns'], 2, '.', ''), number_format($r['sales_total'], 2, '.', '')]));
         }
 
         return view('admin.reports.business.sales_by_customer', [
             'rows' => $rows,
             'totalOrders' => $rows->sum('orders_count'),
+            'totalReturns' => $rows->sum('returns'),
             'totalSales' => $rows->sum('sales_total'),
         ] + $this->viewMeta($range));
     }
@@ -79,6 +112,7 @@ class BusinessReportController extends Controller
     {
         $range = $this->range($request);
 
+        // إجماليات البيع صافية من الإرجاع بفاتورة (returned_qty)، مع الخصم موزّعًا تناسبيًا.
         $rows = OrderItem::query()
             ->join('orders', 'orders.id', '=', 'order_items.order_id')
             ->join('product_variants', 'product_variants.id', '=', 'order_items.variant_id')
@@ -86,35 +120,51 @@ class BusinessReportController extends Controller
             ->whereNotIn('orders.status', self::EXCLUDED_STATUSES)
             ->whereBetween('orders.created_at', [$range->from, $range->to])
             ->groupBy('products.id', 'products.name')
-            ->selectRaw('products.name as product_name,
-                SUM(order_items.qty) as qty_sold,
-                SUM(order_items.qty * order_items.unit_price - order_items.discount) as sale_total,
-                SUM(order_items.qty * COALESCE(order_items.wholesale_cost_snapshot, product_variants.average_cost, 0)) as cost_total')
+            ->selectRaw('products.id as product_id, products.name as product_name,
+                SUM(order_items.qty - order_items.returned_qty) as qty_sold,
+                SUM((order_items.qty - order_items.returned_qty) * order_items.unit_price
+                    - order_items.discount * (order_items.qty - order_items.returned_qty) / NULLIF(order_items.qty, 0)) as sale_total,
+                SUM((order_items.qty - order_items.returned_qty) * COALESCE(order_items.wholesale_cost_snapshot, product_variants.average_cost, 0)) as cost_total,
+                SUM(order_items.returned_qty * order_items.unit_price
+                    - order_items.discount * order_items.returned_qty / NULLIF(order_items.qty, 0)) as invoice_returns')
             ->orderByDesc('sale_total')
-            ->get()
-            ->map(function ($r) {
-                $qty = (float) $r->qty_sold;
-                $sale = (float) $r->sale_total;
-                $cost = (float) $r->cost_total;
+            ->get();
 
-                return [
-                    'product' => $r->product_name,
-                    'qty' => $qty,
-                    'sale_total' => round($sale, 2),
-                    'avg_price' => $qty > 0 ? round($sale / $qty, 2) : 0.0,
-                    'profit' => round($sale - $cost, 2),
-                ];
-            });
+        // مرتجعات بدون فاتورة لكل منتج (pos_return_lines).
+        $noInvoice = DB::table('pos_return_lines as prl')
+            ->join('product_variants as pv', 'pv.id', '=', 'prl.variant_id')
+            ->whereBetween('prl.created_at', [$range->from, $range->to])
+            ->groupBy('pv.product_id')
+            ->selectRaw('pv.product_id, SUM(prl.qty) as ret_qty, SUM(prl.qty * prl.unit_price) as ret_sale, SUM(prl.qty * prl.unit_cost) as ret_cost')
+            ->get()->keyBy('product_id');
+
+        $rows = $rows->map(function ($r) use ($noInvoice) {
+            $ni = $noInvoice->get($r->product_id);
+            $qty = (float) $r->qty_sold - (float) ($ni->ret_qty ?? 0);
+            $sale = (float) $r->sale_total - (float) ($ni->ret_sale ?? 0);
+            $cost = (float) $r->cost_total - (float) ($ni->ret_cost ?? 0);
+            $returns = (float) $r->invoice_returns + (float) ($ni->ret_sale ?? 0);
+
+            return [
+                'product' => $r->product_name,
+                'qty' => round($qty, 2),
+                'returns' => round($returns, 2),
+                'sale_total' => round($sale, 2),
+                'avg_price' => $qty > 0 ? round($sale / $qty, 2) : 0.0,
+                'profit' => round($sale - $cost, 2),
+            ];
+        })->sortByDesc('sale_total')->values();
 
         if ($request->query('export') === 'csv') {
             return $this->csv('sales-by-product',
-                [__('المنتج'), __('الكمية المباعة'), __('إجمالي البيع'), __('متوسط سعر القطعة'), __('الربح الإجمالي')],
-                $rows->map(fn ($r) => [$r['product'], number_format($r['qty'], 2, '.', ''), number_format($r['sale_total'], 2, '.', ''), number_format($r['avg_price'], 2, '.', ''), number_format($r['profit'], 2, '.', '')]));
+                [__('المنتج'), __('الكمية المباعة'), __('المرتجعات'), __('إجمالي البيع'), __('متوسط سعر القطعة'), __('الربح الإجمالي')],
+                $rows->map(fn ($r) => [$r['product'], number_format($r['qty'], 2, '.', ''), number_format($r['returns'], 2, '.', ''), number_format($r['sale_total'], 2, '.', ''), number_format($r['avg_price'], 2, '.', ''), number_format($r['profit'], 2, '.', '')]));
         }
 
         return view('admin.reports.business.sales_by_product', [
             'rows' => $rows,
             'totalQty' => $rows->sum('qty'),
+            'totalReturns' => $rows->sum('returns'),
             'totalSales' => $rows->sum('sale_total'),
             'totalProfit' => $rows->sum('profit'),
         ] + $this->viewMeta($range));

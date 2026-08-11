@@ -13,7 +13,8 @@
             <tr>
                 <th>{{ __('الزبون') }}</th>
                 <th class="text-start">{{ __('عدد الطلبات') }}</th>
-                <th class="text-start">{{ __('مجموع المبيعات') }}</th>
+                <th class="text-start">{{ __('المرتجعات') }}</th>
+                <th class="text-start">{{ __('صافي المبيعات') }}</th>
             </tr>
         </thead>
         <tbody>
@@ -21,10 +22,11 @@
                 <tr>
                     <td class="font-medium text-gray-800">{{ $r['name'] }}</td>
                     <td class="text-start tabular-nums">{{ number_format($r['orders_count']) }}</td>
+                    <td class="text-start tabular-nums whitespace-nowrap text-rose-600">{{ ($r['returns'] ?? 0) > 0 ? '− '.number_format($r['returns'], 2).' '.$sym : '—' }}</td>
                     <td class="text-start font-medium tabular-nums whitespace-nowrap">{{ number_format($r['sales_total'], 2) }} {{ $sym }}</td>
                 </tr>
             @empty
-                <tr><td colspan="3" class="!p-0">
+                <tr><td colspan="4" class="!p-0">
                     <x-admin.empty-state :title="__('لا توجد مبيعات')" :description="__('لم تُسجّل أي مبيعات بعد.')" />
                 </td></tr>
             @endforelse
@@ -34,6 +36,7 @@
                 <tr class="font-bold bg-gray-50">
                     <td>{{ __('الإجمالي') }}</td>
                     <td class="text-start tabular-nums">{{ number_format($totalOrders) }}</td>
+                    <td class="text-start tabular-nums whitespace-nowrap text-rose-600">{{ ($totalReturns ?? 0) > 0 ? '− '.number_format($totalReturns, 2).' '.$sym : '—' }}</td>
                     <td class="text-start tabular-nums whitespace-nowrap">{{ number_format($totalSales, 2) }} {{ $sym }}</td>
                 </tr>
             </tfoot>
