@@ -13,7 +13,8 @@
             <tr>
                 <th>{{ __('المنتج') }}</th>
                 <th class="text-start">{{ __('الكمية المباعة') }}</th>
-                <th class="text-start">{{ __('إجمالي البيع') }}</th>
+                <th class="text-start">{{ __('المرتجعات') }}</th>
+                <th class="text-start">{{ __('صافي البيع') }}</th>
                 <th class="text-start">{{ __('متوسط سعر القطعة') }}</th>
                 <th class="text-start">{{ __('الربح الإجمالي') }}</th>
             </tr>
@@ -23,12 +24,13 @@
                 <tr>
                     <td class="font-medium text-gray-800">{{ $r['product'] }}</td>
                     <td class="text-start tabular-nums">{{ number_format($r['qty'], 2) }}</td>
+                    <td class="text-start tabular-nums whitespace-nowrap text-rose-600">{{ ($r['returns'] ?? 0) > 0 ? '− '.number_format($r['returns'], 2).' '.$sym : '—' }}</td>
                     <td class="text-start font-medium tabular-nums whitespace-nowrap">{{ number_format($r['sale_total'], 2) }} {{ $sym }}</td>
                     <td class="text-start tabular-nums whitespace-nowrap">{{ number_format($r['avg_price'], 2) }} {{ $sym }}</td>
                     <td class="text-start tabular-nums whitespace-nowrap {{ $r['profit'] < 0 ? 'text-rose-600' : 'text-emerald-700' }}">{{ number_format($r['profit'], 2) }} {{ $sym }}</td>
                 </tr>
             @empty
-                <tr><td colspan="5" class="!p-0">
+                <tr><td colspan="6" class="!p-0">
                     <x-admin.empty-state :title="__('لا توجد مبيعات')" :description="__('لم تُسجّل أي مبيعات بعد.')" />
                 </td></tr>
             @endforelse
@@ -38,6 +40,7 @@
                 <tr class="font-bold bg-gray-50">
                     <td>{{ __('الإجمالي') }}</td>
                     <td class="text-start tabular-nums">{{ number_format($totalQty, 2) }}</td>
+                    <td class="text-start tabular-nums whitespace-nowrap text-rose-600">{{ ($totalReturns ?? 0) > 0 ? '− '.number_format($totalReturns, 2).' '.$sym : '—' }}</td>
                     <td class="text-start tabular-nums whitespace-nowrap">{{ number_format($totalSales, 2) }} {{ $sym }}</td>
                     <td class="text-start text-gray-300">—</td>
                     <td class="text-start tabular-nums whitespace-nowrap {{ $totalProfit < 0 ? 'text-rose-600' : 'text-emerald-700' }}">{{ number_format($totalProfit, 2) }} {{ $sym }}</td>
