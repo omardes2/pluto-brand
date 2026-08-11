@@ -96,6 +96,32 @@ class PosReturnsReportTest extends TestCase
         $this->assertSame(0.0, app(PosReportService::class)->shiftDetail($shift->fresh())['totals']['profit']);
     }
 
+    public function test_no_invoice_return_uses_cost_price_when_wac_is_zero(): void
+    {
+        // صنف تكلفته في cost_price لا في WAC (average_cost=0) — كحالة الإنتاج.
+        $variant = Product::factory()->create()->defaultVariant;
+        $variant->update(['wholesale_price' => 0]);
+        Product::whereKey($variant->product_id)->update(['is_active' => true, 'status' => 'active']);
+        app(InventoryService::class)->receive($variant, $this->warehouse, 10, 0); // WAC = 0
+        $variant->update(['cost_price' => 60]);
+
+        $shift = $this->openShift();
+        app(PosSaleService::class)->sell($shift, [
+            'items' => [['variant_id' => $variant->id, 'qty' => 1, 'unit_price' => 150]],
+            'payment_method' => 'cash',
+        ]);
+        app(PosReturnService::class)->refundWithoutInvoice($shift, [
+            ['variant_id' => $variant->id, 'qty' => 1, 'unit_price' => 150],
+        ]);
+
+        $line = PosReturnLine::where('variant_id', $variant->id)->firstOrFail();
+        $this->assertEquals(60, (float) $line->unit_cost); // تراجُع لـ cost_price
+
+        $t = app(PosReportService::class)->shiftDetail($shift->fresh())['totals'];
+        $this->assertSame(60.0, $t['returns_cost']);
+        $this->assertSame(0.0, $t['profit']); // كان -60
+    }
+
     public function test_items_report_nets_no_invoice_returns(): void
     {
         $shift = $this->openShift();

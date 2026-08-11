@@ -79,7 +79,14 @@ class BackfillNoInvoiceReturnLines extends Command
                 foreach ($p['rows'] as $mv) {
                     $cost = (float) $mv->unit_cost;
                     if ($cost <= 0) {
-                        $cost = (float) (ProductVariant::whereKey($mv->variant_id)->value('average_cost') ?? 0);
+                        $v = ProductVariant::with('product:id,cost_price')->find($mv->variant_id);
+                        $cost = (float) ($v?->average_cost ?? 0);
+                        if ($cost <= 0) {
+                            $cost = (float) ($v?->cost_price ?? 0);
+                        }
+                        if ($cost <= 0) {
+                            $cost = (float) ($v?->product?->cost_price ?? 0);
+                        }
                     }
                     PosReturnLine::create([
                         'pos_shift_id' => $p['shift']->id,

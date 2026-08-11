@@ -62,6 +62,15 @@ class PosReturnService
                     $this->inventory->returnToStock($variant, $warehouse, $qty, null, $opts);
                 }
 
+                // تكلفة الوحدة بسلسلة تراجُع (الكاست العشري يعيد نصًا فيلزم مقارنة > 0 لا ?:).
+                $unitCost = (float) $variant->average_cost;
+                if ($unitCost <= 0) {
+                    $unitCost = (float) $variant->cost_price;
+                }
+                if ($unitCost <= 0) {
+                    $unitCost = (float) ($variant->product?->cost_price ?? 0);
+                }
+
                 // بند مرتجع قابل للاستعلام — لخصم المبيعات والتكلفة في التقارير.
                 PosReturnLine::create([
                     'pos_shift_id' => $shift->id,
@@ -69,7 +78,7 @@ class PosReturnService
                     'variant_id' => $variant->id,
                     'qty' => $qty,
                     'unit_price' => $unitPrice,
-                    'unit_cost' => (float) ($variant->average_cost ?: $variant->cost_price ?: 0),
+                    'unit_cost' => $unitCost,
                     'created_at' => now(),
                 ]);
 
