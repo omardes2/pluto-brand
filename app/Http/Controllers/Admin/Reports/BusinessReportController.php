@@ -112,7 +112,10 @@ class BusinessReportController extends Controller
     {
         $range = $this->range($request);
 
-        // إجماليات البيع صافية من الإرجاع بفاتورة (returned_qty)، مع الخصم موزّعًا تناسبيًا.
+        // تكلفة الوحدة الفعّالة: لقطة البيع ← متوسط التكلفة ← سعر التكلفة (NULLIF لتخطّي الصفر).
+        $effCost = 'COALESCE(NULLIF(order_items.wholesale_cost_snapshot,0), NULLIF(product_variants.average_cost,0), NULLIF(product_variants.cost_price,0), 0)';
+
+        // مبيعات إجمالية (قبل المرتجعات) + مرتجعات بفاتورة (returned_qty) لكل منتج.
         $rows = OrderItem::query()
             ->join('orders', 'orders.id', '=', 'order_items.order_id')
             ->join('product_variants', 'product_variants.id', '=', 'order_items.variant_id')
@@ -120,14 +123,14 @@ class BusinessReportController extends Controller
             ->whereNotIn('orders.status', self::EXCLUDED_STATUSES)
             ->whereBetween('orders.created_at', [$range->from, $range->to])
             ->groupBy('products.id', 'products.name')
-            ->selectRaw('products.id as product_id, products.name as product_name,
-                SUM(order_items.qty - order_items.returned_qty) as qty_sold,
-                SUM((order_items.qty - order_items.returned_qty) * order_items.unit_price
-                    - order_items.discount * (order_items.qty - order_items.returned_qty) / NULLIF(order_items.qty, 0)) as sale_total,
-                SUM((order_items.qty - order_items.returned_qty) * COALESCE(order_items.wholesale_cost_snapshot, product_variants.average_cost, 0)) as cost_total,
+            ->selectRaw("products.id as product_id, products.name as product_name,
+                SUM(order_items.qty) as gross_qty,
+                SUM(order_items.qty * order_items.unit_price - order_items.discount) as gross_sale,
+                SUM(order_items.qty * {$effCost}) as gross_cost,
+                SUM(order_items.returned_qty) as inv_ret_qty,
                 SUM(order_items.returned_qty * order_items.unit_price
-                    - order_items.discount * order_items.returned_qty / NULLIF(order_items.qty, 0)) as invoice_returns')
-            ->orderByDesc('sale_total')
+                    - order_items.discount * order_items.returned_qty / NULLIF(order_items.qty, 0)) as inv_ret_sale,
+                SUM(order_items.returned_qty * {$effCost}) as inv_ret_cost")
             ->get();
 
         // مرتجعات بدون فاتورة لكل منتج (pos_return_lines).
@@ -140,18 +143,21 @@ class BusinessReportController extends Controller
 
         $rows = $rows->map(function ($r) use ($noInvoice) {
             $ni = $noInvoice->get($r->product_id);
-            $qty = (float) $r->qty_sold - (float) ($ni->ret_qty ?? 0);
-            $sale = (float) $r->sale_total - (float) ($ni->ret_sale ?? 0);
-            $cost = (float) $r->cost_total - (float) ($ni->ret_cost ?? 0);
-            $returns = (float) $r->invoice_returns + (float) ($ni->ret_sale ?? 0);
+            $grossQty = (float) $r->gross_qty;
+            $grossSale = (float) $r->gross_sale;
+            $grossCost = (float) $r->gross_cost;
+            $retSale = (float) $r->inv_ret_sale + (float) ($ni->ret_sale ?? 0);
+            $retCost = (float) $r->inv_ret_cost + (float) ($ni->ret_cost ?? 0);
+            $netSale = $grossSale - $retSale;
+            $netCost = $grossCost - $retCost;
 
             return [
                 'product' => $r->product_name,
-                'qty' => round($qty, 2),
-                'returns' => round($returns, 2),
-                'sale_total' => round($sale, 2),
-                'avg_price' => $qty > 0 ? round($sale / $qty, 2) : 0.0,
-                'profit' => round($sale - $cost, 2),
+                'qty' => round($grossQty, 2),          // الكمية المباعة (فعلية قبل المرتجعات)
+                'returns' => round($retSale, 2),        // المرتجعات
+                'sale_total' => round($netSale, 2),     // صافي البيع بعد المرتجعات
+                'avg_price' => $grossQty > 0 ? round($grossSale / $grossQty, 2) : 0.0,
+                'profit' => round($netSale - $netCost, 2),
             ];
         })->sortByDesc('sale_total')->values();
 
