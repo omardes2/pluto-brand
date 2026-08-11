@@ -21,9 +21,9 @@
             {{-- بطاقات الإجماليات --}}
             <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
                 @foreach ([
-                    ['الكمية المباعة', $t['qty'], 'text-gray-800', false],
-                    ['إجمالي المبيعات', $t['revenue'], 'text-emerald-700', true],
-                    ['إجمالي التكلفة', $t['cost'], 'text-gray-600', true],
+                    ['الكمية المباعة (صافي)', $t['qty'], 'text-gray-800', false],
+                    ['صافي المبيعات (بعد المرتجعات)', $t['revenue'], 'text-emerald-700', true],
+                    ['المرتجعات', $t['returns'] ?? 0, 'text-red-700', true],
                     ['إجمالي الربح', $t['profit'], 'text-emerald-700', true],
                 ] as [$label, $val, $color, $money])
                     <div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
@@ -42,6 +42,7 @@
                             <th class="text-start">{{ __('الصنف') }}</th>
                             <th class="text-start">{{ __('SKU') }}</th>
                             <th class="text-end">{{ __('الكمية') }}</th>
+                            <th class="text-end">{{ __('المرتجعات') }}</th>
                             <th class="text-end">{{ __('المبيعات') }}</th>
                             <th class="text-end">{{ __('التكلفة') }}</th>
                             <th class="text-end">{{ __('الربح') }}</th>
@@ -53,12 +54,13 @@
                                 <td class="px-4 py-2.5 font-semibold">{{ $r['name'] }}</td>
                                 <td class="px-4 py-2.5 tabular-nums text-gray-500">{{ $r['sku'] }}</td>
                                 <td class="px-4 py-2.5 text-end tabular-nums font-bold">{{ number_format((float) $r['qty'], 2) }}</td>
+                                <td class="px-4 py-2.5 text-end tabular-nums text-red-700">{{ ($r['returns'] ?? 0) > 0 ? '− '.$m($r['returns']) : '—' }}</td>
                                 <td class="px-4 py-2.5 text-end tabular-nums text-emerald-700">{{ $m($r['revenue']) }}</td>
                                 <td class="px-4 py-2.5 text-end tabular-nums text-gray-500">{{ $m($r['cost']) }}</td>
                                 <td class="px-4 py-2.5 text-end tabular-nums font-bold {{ $r['profit'] >= 0 ? 'text-emerald-700' : 'text-red-700' }}">{{ $m($r['profit']) }}</td>
                             </tr>
                         @empty
-                            <tr><td colspan="6" class="text-center text-gray-400 py-8">{{ __('لا مبيعات في هذه الفترة') }}</td></tr>
+                            <tr><td colspan="7" class="text-center text-gray-400 py-8">{{ __('لا مبيعات في هذه الفترة') }}</td></tr>
                         @endforelse
                     </tbody>
                 </table>

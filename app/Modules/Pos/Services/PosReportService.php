@@ -2,6 +2,8 @@
 
 namespace App\Modules\Pos\Services;
 
+use App\Modules\Catalog\Models\ProductVariant;
+use App\Modules\Pos\Models\PosReturnLine;
 use App\Modules\Pos\Models\PosShift;
 use App\Modules\Pos\Models\PosShiftMovement;
 use App\Modules\Sales\Models\Order;
@@ -93,6 +95,17 @@ class PosReportService
         return (float) ($item->variant?->product?->cost_price ?? 0);
     }
 
+    /** اسم الصنف مع خيار المتغيّر (لون/مقاس) للعرض في التقارير. */
+    private function variantLabel(?ProductVariant $variant): string
+    {
+        $name = $variant?->product?->name ?? $variant?->sku ?? '—';
+        if (! empty($variant?->name)) {
+            $name .= ' — '.$variant->name;
+        }
+
+        return $name;
+    }
+
     public function itemsSold(string $from, string $to, ?int $branchId = null): array
     {
         $orders = Order::query()
@@ -106,34 +119,56 @@ class PosReportService
         $items = [];
         foreach ($orders as $order) {
             foreach ($order->items as $it) {
-                $grossQty = (float) $it->qty;
-                $netQty = $grossQty - (float) $it->returned_qty;
-                if ($netQty <= 0) {
+                $qty = (float) $it->qty; // إجمالي المباع
+                if ($qty <= 0) {
                     continue;
                 }
-                // المبيعات = صافي بعد خصم البند (موزّع تناسبيًا عند إرجاع جزئي).
-                $lineDiscount = $grossQty > 0 ? (float) $it->discount * ($netQty / $grossQty) : 0.0;
-                $lineRev = $netQty * (float) $it->unit_price - $lineDiscount;
-                $lineCost = $netQty * $this->unitCost($it);
+                $unitCost = $this->unitCost($it);
+                $lineRev = $qty * (float) $it->unit_price - (float) $it->discount;
+                $lineCost = $qty * $unitCost;
 
                 $key = $it->variant_id;
                 if (! isset($items[$key])) {
-                    $name = $it->variant?->product?->name ?? $it->variant?->sku ?? '—';
-                    if (! empty($it->variant?->name)) {
-                        $name .= ' — '.$it->variant->name;
-                    }
-                    $items[$key] = ['name' => $name, 'sku' => $it->variant?->sku ?? '—', 'qty' => 0.0, 'revenue' => 0.0, 'cost' => 0.0];
+                    $items[$key] = ['name' => $this->variantLabel($it->variant), 'sku' => $it->variant?->sku ?? '—',
+                        'qty' => 0.0, 'revenue' => 0.0, 'cost' => 0.0, 'returned_qty' => 0.0, 'returns' => 0.0];
                 }
-                $items[$key]['qty'] += $netQty;
+                $items[$key]['qty'] += $qty;
                 $items[$key]['revenue'] += $lineRev;
                 $items[$key]['cost'] += $lineCost;
+
+                // إرجاع بفاتورة (returned_qty) — يُخصم من المبيعات والتكلفة والكمية.
+                $retQty = (float) $it->returned_qty;
+                if ($retQty > 0) {
+                    $retDiscount = $qty > 0 ? (float) $it->discount * ($retQty / $qty) : 0.0;
+                    $rRev = $retQty * (float) $it->unit_price - $retDiscount;
+                    $items[$key]['qty'] -= $retQty;
+                    $items[$key]['revenue'] -= $rRev;
+                    $items[$key]['cost'] -= $retQty * $unitCost;
+                    $items[$key]['returned_qty'] += $retQty;
+                    $items[$key]['returns'] += $rRev;
+                }
             }
+        }
+
+        // خصم المرتجعات بدون فاتورة لكل صنف — من المبيعات والتكلفة والكمية.
+        foreach ($this->returnsByVariant($from, $to, $branchId) as $variantId => $ret) {
+            if (! isset($items[$variantId])) {
+                $items[$variantId] = ['name' => $ret['name'], 'sku' => $ret['sku'],
+                    'qty' => 0.0, 'revenue' => 0.0, 'cost' => 0.0, 'returned_qty' => 0.0, 'returns' => 0.0];
+            }
+            $items[$variantId]['qty'] -= $ret['qty'];
+            $items[$variantId]['revenue'] -= $ret['revenue'];
+            $items[$variantId]['cost'] -= $ret['cost'];
+            $items[$variantId]['returned_qty'] += $ret['qty'];
+            $items[$variantId]['returns'] += $ret['revenue'];
         }
 
         $items = array_map(function ($r) {
             $r['qty'] = round($r['qty'], 2);
             $r['revenue'] = round($r['revenue'], 2);
             $r['cost'] = round($r['cost'], 2);
+            $r['returned_qty'] = round($r['returned_qty'], 2);
+            $r['returns'] = round($r['returns'], 2);
             $r['profit'] = round($r['revenue'] - $r['cost'], 2);
 
             return $r;
@@ -146,9 +181,38 @@ class PosReportService
                 'qty' => round(array_sum(array_column($items, 'qty')), 2),
                 'revenue' => round(array_sum(array_column($items, 'revenue')), 2),
                 'cost' => round(array_sum(array_column($items, 'cost')), 2),
+                'returns' => round(array_sum(array_column($items, 'returns')), 2),
                 'profit' => round(array_sum(array_column($items, 'profit')), 2),
             ],
         ];
+    }
+
+    /**
+     * مرتجعات نقطة البيع مجمّعة حسب المتغيّر في مدى زمني (وفرع اختياري) — من pos_return_lines.
+     *
+     * @return array<int, array{name:string, sku:string, qty:float, revenue:float, cost:float}>
+     */
+    public function returnsByVariant(string $from, string $to, ?int $branchId = null): array
+    {
+        $lines = PosReturnLine::query()
+            ->whereBetween('created_at', [$from.' 00:00:00', $to.' 23:59:59'])
+            ->when($branchId, fn ($q) => $q->whereHas('shift', fn ($s) => $s->where('branch_id', $branchId)))
+            ->with('variant.product')
+            ->get();
+
+        $out = [];
+        foreach ($lines as $rl) {
+            $key = $rl->variant_id;
+            if (! isset($out[$key])) {
+                $out[$key] = ['name' => $this->variantLabel($rl->variant), 'sku' => $rl->variant?->sku ?? '—',
+                    'qty' => 0.0, 'revenue' => 0.0, 'cost' => 0.0];
+            }
+            $out[$key]['qty'] += (float) $rl->qty;
+            $out[$key]['revenue'] += (float) $rl->qty * (float) $rl->unit_price;
+            $out[$key]['cost'] += (float) $rl->qty * (float) $rl->unit_cost;
+        }
+
+        return $out;
     }
 
     /**
@@ -231,32 +295,61 @@ class PosReportService
         $revenue = 0.0;
         $cost = 0.0;
 
+        $returnsRevenue = 0.0;
+        $returnsCost = 0.0;
+
+        // المبيعات الإجمالية (قبل المرتجعات) لكل صنف بيع في الوردية،
+        // مع خصم المرتجعات بفاتورة (returned_qty) من المبيعات والتكلفة.
         foreach ($orders as $order) {
             foreach ($order->items as $it) {
-                $grossQty = (float) $it->qty;
-                $netQty = $grossQty - (float) $it->returned_qty;
-                if ($netQty <= 0) {
+                $qty = (float) $it->qty;
+                if ($qty <= 0) {
                     continue;
                 }
-                // المبيعات = صافي بعد خصم البند (الخصم موزّع تناسبيًا عند إرجاع جزئي).
-                $lineDiscount = $grossQty > 0 ? (float) $it->discount * ($netQty / $grossQty) : 0.0;
-                $lineRev = $netQty * (float) $it->unit_price - $lineDiscount;
-                $lineCost = $netQty * $this->unitCost($it);
+                $unitCost = $this->unitCost($it);
+                $lineRev = $qty * (float) $it->unit_price - (float) $it->discount;
+                $lineCost = $qty * $unitCost;
                 $revenue += $lineRev;
                 $cost += $lineCost;
 
                 $key = $it->variant_id;
                 if (! isset($items[$key])) {
-                    $name = $it->variant?->product?->name ?? $it->variant?->sku ?? '—';
-                    if (! empty($it->variant?->name)) {
-                        $name .= ' — '.$it->variant->name;
-                    }
-                    $items[$key] = ['name' => $name, 'qty' => 0.0, 'revenue' => 0.0, 'cost' => 0.0];
+                    $items[$key] = ['name' => $this->variantLabel($it->variant), 'qty' => 0.0, 'revenue' => 0.0, 'cost' => 0.0];
                 }
-                $items[$key]['qty'] += $netQty;
+                $items[$key]['qty'] += $qty;
                 $items[$key]['revenue'] += $lineRev;
                 $items[$key]['cost'] += $lineCost;
+
+                // إرجاع بفاتورة على هذا البند (returned_qty).
+                $retQty = (float) $it->returned_qty;
+                if ($retQty > 0) {
+                    $retDiscount = $qty > 0 ? (float) $it->discount * ($retQty / $qty) : 0.0;
+                    $rRev = round($retQty * (float) $it->unit_price - $retDiscount, 2);
+                    $rCost = round($retQty * $unitCost, 2);
+                    $returnsRevenue += $rRev;
+                    $returnsCost += $rCost;
+                    $items[$key]['qty'] -= $retQty;
+                    $items[$key]['revenue'] -= $rRev;
+                    $items[$key]['cost'] -= $rCost;
+                }
             }
+        }
+
+        // مرتجعات بدون فاتورة — تُخصم من المبيعات **والتكلفة**.
+        foreach (PosReturnLine::where('pos_shift_id', $shift->id)->with('variant.product')->get() as $rl) {
+            $rQty = (float) $rl->qty;
+            $rRev = round($rQty * (float) $rl->unit_price, 2);
+            $rCost = round($rQty * (float) $rl->unit_cost, 2);
+            $returnsRevenue += $rRev;
+            $returnsCost += $rCost;
+
+            $key = $rl->variant_id;
+            if (! isset($items[$key])) {
+                $items[$key] = ['name' => $this->variantLabel($rl->variant), 'qty' => 0.0, 'revenue' => 0.0, 'cost' => 0.0];
+            }
+            $items[$key]['qty'] -= $rQty;
+            $items[$key]['revenue'] -= $rRev;
+            $items[$key]['cost'] -= $rCost;
         }
 
         $items = array_map(function ($r) {
@@ -270,20 +363,23 @@ class PosReportService
         usort($items, fn ($a, $b) => $b['revenue'] <=> $a['revenue']);
 
         $expenses = (float) $shift->movements()->where('type', PosShiftMovement::TYPE_PAY_OUT)->sum('amount');
-        // المرتجعات (استرداد نقدي من الدرج) — تُخصم من صافي مبيعات الوردية وربحها.
-        $returns = (float) $shift->movements()->where('type', PosShiftMovement::TYPE_REFUND)->sum('amount');
-        $netSales = round($revenue - $returns, 2);
+        $returnsRevenue = round($returnsRevenue, 2);
+        $returnsCost = round($returnsCost, 2);
+        $netSales = round($revenue - $returnsRevenue, 2);
+        $netCost = round($cost - $returnsCost, 2);
 
         return [
             'shift' => $shift->loadMissing('cashier', 'warehouse', 'branch'),
             'items' => $items,
             'totals' => [
-                'revenue' => round($revenue, 2),        // إجمالي المبيعات (صافي الخصومات، قبل المرتجعات)
-                'returns' => round($returns, 2),
-                'net_sales' => $netSales,               // صافي بعد المرتجعات
-                'cost' => round($cost, 2),
+                'revenue' => round($revenue, 2),          // إجمالي المبيعات (قبل المرتجعات)
+                'returns' => $returnsRevenue,             // مبيعات المرتجعات
+                'returns_cost' => $returnsCost,           // تكلفة المرتجعات (تُعكَس)
+                'net_sales' => $netSales,                 // صافي المبيعات بعد المرتجعات
+                'cost' => round($cost, 2),                // إجمالي التكلفة (قبل المرتجعات)
+                'net_cost' => $netCost,                   // صافي التكلفة بعد عكس المرتجعات
                 'gross_profit' => round($revenue - $cost, 2),
-                'profit' => round($netSales - $cost, 2), // ربح الوردية بعد المرتجعات
+                'profit' => round($netSales - $netCost, 2), // ربح الوردية = صافي المبيعات − صافي التكلفة
                 'expenses' => round($expenses, 2),
                 'net_cash' => round((float) $shift->expected_cash - (float) $shift->opening_float, 2),
             ],
