@@ -8,9 +8,14 @@ use App\Modules\Shipping\Support\DeliveryStatus;
 use Illuminate\Support\Facades\Log;
 
 /**
- * يعكس إلغاء الشحنة القادم من شركة التوصيل (webhook/مزامنة) على الطلب:
- * إن ألغى المزوّد الشحنة يُلغى الطلب تلقائيًا ويُحرَّر المخزون المحجوز (إن كان الطلب قابلًا للإلغاء).
- * الإلغاء اليدوي للشحنة داخليًا لا يُلغي الطلب (يبقى القرار للمستخدم).
+ * يعكس حركات شركة التوصيل (webhook/مزامنة) على الطلب في لوحة الطلبات:
+ *
+ * 1. **إلغاء المزوّد** (Opost: cancel) ⇒ إلغاء الطلب تلقائيًا وتحرير المخزون المحجوز
+ *    (إن كان الطلب قابلًا للإلغاء). الإلغاء اليدوي داخليًا لا يُلغي الطلب.
+ * 2. **وصول المبلغ لمحاسبة المندوب** (Opost: in_accounting ⇒ FUNDS_AT_ACCOUNTING) ⇒
+ *    اعتبار الفاتورة **مدفوعة** في النظام (حُصّل مبلغ الدفع عند الاستلام وأصبح لدى مالية
+ *    شركة التوصيل قابلًا للسحب). علمًا أنّ ذمّة شركة التوصيل (1050) تبقى في الأستاذ حتى
+ *    التحصيل النهائي — فالعلَم هنا حالة دفع الطلب لا قيدًا محاسبيًا جديدًا.
  */
 class SyncOrderOnDeliveryStatus
 {
@@ -21,8 +26,17 @@ class SyncOrderOnDeliveryStatus
 
     public function handle(DeliveryStatusChanged $event): void
     {
-        // فقط إلغاء قادم من المزوّد (لا من إجراء داخلي).
-        if ($event->toStatus !== DeliveryStatus::CANCELLED || $event->actorType !== 'provider') {
+        match ($event->toStatus) {
+            DeliveryStatus::CANCELLED => $this->cancelOrderFromProvider($event),
+            DeliveryStatus::FUNDS_AT_ACCOUNTING => $this->markOrderPaid($event),
+            default => null,
+        };
+    }
+
+    /** إلغاء الطلب عند إلغاء الشحنة لدى شركة التوصيل (لا من إجراء داخلي). */
+    private function cancelOrderFromProvider(DeliveryStatusChanged $event): void
+    {
+        if ($event->actorType !== 'provider') {
             return;
         }
 
@@ -36,5 +50,29 @@ class SyncOrderOnDeliveryStatus
         } catch (\Throwable $e) {
             Log::warning('Auto-cancel order on provider cancel failed: '.$e->getMessage(), ['order' => $order->id]);
         }
+    }
+
+    /**
+     * اعتبار الفاتورة مدفوعة عند وصول المبلغ لمحاسبة شركة التوصيل (in_accounting). idempotent:
+     * لا يمسّ طلبًا ملغى ولا يُعيد التعليم إن كان مدفوعًا بالكامل مسبقًا.
+     */
+    private function markOrderPaid(DeliveryStatusChanged $event): void
+    {
+        $order = $event->shipment->order;
+        if ($order === null || $order->status === 'cancelled') {
+            return;
+        }
+
+        $total = round((float) $order->total, 2);
+        $alreadyPaid = $order->payment_status === 'paid'
+            && (float) $order->amount_paid + 0.001 >= $total;
+        if ($alreadyPaid) {
+            return;
+        }
+
+        $order->update([
+            'amount_paid' => $total,
+            'payment_status' => 'paid',
+        ]);
     }
 }
