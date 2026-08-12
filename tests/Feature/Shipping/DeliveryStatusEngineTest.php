@@ -100,6 +100,29 @@ class DeliveryStatusEngineTest extends TestCase
         $this->assertSame('cancelled', $shipment->order->fresh()->status);
     }
 
+    public function test_provider_in_accounting_marks_order_paid(): void
+    {
+        // وصول المبلغ لمحاسبة شركة التوصيل (Opost: in_accounting) ⇒ الفاتورة مدفوعة في النظام.
+        $provider = DeliveryProvider::create(['name' => 'Opost', 'code' => 'opost', 'driver' => 'opost']);
+        $shipment = $this->shipment(null, $provider->id);
+        $total = (float) $shipment->order->total;
+        $this->assertSame('unpaid', $shipment->order->fresh()->payment_status);
+
+        // تسلسل حركات المزوّد حتى in_accounting (كل حدث بمعرّف مستقل).
+        $this->svc->applyProviderStatus($shipment, 'submit', ['event_id' => 'a1']);
+        $this->svc->applyProviderStatus($shipment, 'pickup', ['event_id' => 'a2']);
+        $this->svc->applyProviderStatus($shipment, 'cod_pickup', ['event_id' => 'a3']);
+        // قبل المحاسبة: غير مدفوعة بعد.
+        $this->assertSame('unpaid', $shipment->order->fresh()->payment_status);
+
+        $this->svc->applyProviderStatus($shipment, 'in_accounting', ['event_id' => 'a4']);
+
+        $order = $shipment->order->fresh();
+        $this->assertEquals(DeliveryStatus::FUNDS_AT_ACCOUNTING, $shipment->fresh()->delivery_status);
+        $this->assertSame('paid', $order->payment_status);
+        $this->assertEqualsWithDelta($total, (float) $order->amount_paid, 0.01);
+    }
+
     public function test_legal_manual_path_records_history_with_actor(): void
     {
         $actor = $this->actor('delivery_ops');
