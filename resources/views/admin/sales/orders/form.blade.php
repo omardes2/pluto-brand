@@ -143,6 +143,32 @@
                     </div>
                 </div>
 
+                {{-- محدّد المقاس/اللون للأصناف متعدّدة المتغيّرات --}}
+                <div x-show="picker" x-cloak class="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4"
+                     @click.self="picker = null" @keydown.escape.window="picker = null">
+                    <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-5">
+                        <div class="flex items-center justify-between mb-1">
+                            <h3 class="font-bold text-gray-800" x-text="picker?.name"></h3>
+                            <button type="button" @click="picker = null" class="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
+                        </div>
+                        <p class="text-xs text-gray-400 mb-3">{{ __('اختر المقاس/اللون') }}</p>
+                        <div class="grid grid-cols-3 gap-2 max-h-80 overflow-y-auto">
+                            <template x-for="v in (picker?.variants || [])" :key="v.variant">
+                                <button type="button" @click="addVariant(picker, v)"
+                                        class="rounded-lg border px-2 py-2 text-center transition"
+                                        :class="Number(v.available) > 0
+                                            ? 'border-gray-200 hover:border-emerald-500 hover:bg-emerald-50'
+                                            : 'border-gray-100 bg-gray-50'">
+                                    <span class="block text-sm font-medium text-gray-800 truncate" x-text="v.label"></span>
+                                    <span class="block text-[11px] tabular-nums"
+                                          :class="Number(v.available) > 0 ? 'text-emerald-600' : 'text-rose-500'"
+                                          x-text="'{{ __('المتوفر') }}: ' + Number(v.available)"></span>
+                                </button>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+
                 {{-- بنود الطلب --}}
                 <div class="mt-2">
                     <template x-if="rows.length === 0">
@@ -299,6 +325,7 @@
                     cityRates: cityRates || {},
                     query: '',
                     showResults: false,
+                    picker: null,
                     cityId: @js(old('city_id') ? (int) old('city_id') : ''),
                     areaId: @js(old('area_id') ? (int) old('area_id') : ''),
                     citySearch: '',
@@ -410,15 +437,28 @@
                         return (Number(r.qty) || 0) * (Number(r.unit_price) || 0);
                     },
                     addProduct(p) {
-                        const existing = this.rows.find(r => r.variant === p.variant);
+                        // منتج متعدّد المتغيّرات ⇒ افتح محدّد المقاس/اللون؛ وإلا أضف متغيّره الوحيد.
+                        const variants = p.variants || [];
+                        if (p.multi && variants.length > 1) {
+                            this.picker = p;
+                            this.query = '';
+                            this.showResults = false;
+                            return;
+                        }
+                        this.addVariant(p, variants[0] || { variant: p.variant, label: p.name, price: p.price });
+                    },
+                    addVariant(p, v) {
+                        const name = (v.label && v.label !== p.name) ? (p.name + ' — ' + v.label) : p.name;
+                        const existing = this.rows.find(r => r.variant === v.variant);
                         if (existing) {
                             existing.qty = (Number(existing.qty) || 0) + 1;
                         } else {
                             this.rows.push({
-                                variant: p.variant, name: p.name, sku: p.sku,
-                                image: p.image, unit_price: p.price, qty: 1,
+                                variant: v.variant, name: name, sku: p.sku,
+                                image: p.image, unit_price: v.price, qty: 1,
                             });
                         }
+                        this.picker = null;
                         this.query = '';
                         this.showResults = false;
                     },

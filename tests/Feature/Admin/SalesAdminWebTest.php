@@ -9,6 +9,7 @@ use App\Modules\Accounting\Models\JournalEntry;
 use App\Modules\Accounting\Models\Treasury;
 use App\Modules\Accounting\Services\TreasuryService;
 use App\Modules\Catalog\Models\Product;
+use App\Modules\Catalog\Models\ProductVariant;
 use App\Modules\Crm\Models\Customer;
 use App\Modules\Foundation\Models\Area;
 use App\Modules\Foundation\Models\Branch;
@@ -103,6 +104,31 @@ class SalesAdminWebTest extends TestCase
     public function test_create_form_renders(): void
     {
         $this->actingAs($this->admin())->get('/admin/sales/orders/create')->assertOk()->assertSee('طلب بيع جديد');
+    }
+
+    public function test_create_form_product_cards_sum_variant_stock_and_expose_variants(): void
+    {
+        // منتج بمتغيّرين نشطين، المخزون في المتغيّر الثاني فقط (الافتراضي صفر) — كحالة الأحذية
+        // بمقاسات: كان يظهر المتوفّر صفرًا لأنه يقرأ المتغيّر الافتراضي فقط.
+        $warehouse = Warehouse::where('code', 'WH-MAIN')->firstOrFail();
+        $product = Product::factory()->active()->create(['visibility' => 'visible', 'retail_price' => 100]);
+        $product->defaultVariant->update(['retail_price' => 100, 'name' => 'مقاس 40']);
+
+        $second = ProductVariant::factory()->create([
+            'product_id' => $product->id, 'is_active' => true, 'retail_price' => 100, 'name' => 'مقاس 41',
+        ]);
+        app(InventoryService::class)->receive($second, $warehouse, 7, 60); // مخزون في الثاني فقط
+
+        $res = $this->actingAs($this->admin())->get('/admin/sales/orders/create')->assertOk();
+        $card = collect($res->viewData('products'))->firstWhere('name', $product->name);
+
+        $this->assertNotNull($card);
+        $this->assertEqualsWithDelta(7, $card['available'], 0.01); // إجمالي متوفّر المنتج (لا صفر)
+        $this->assertTrue($card['multi']);
+        $this->assertCount(2, $card['variants']);
+        $inStock = collect($card['variants'])->firstWhere('label', 'مقاس 41');
+        $this->assertNotNull($inStock);
+        $this->assertEqualsWithDelta(7, $inStock['available'], 0.01);
     }
 
     public function test_accountant_sees_no_create_button(): void
