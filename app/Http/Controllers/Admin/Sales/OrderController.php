@@ -625,12 +625,16 @@ class OrderController extends Controller
         return Warehouse::where('is_default', true)->first() ?? Warehouse::orderBy('id')->first();
     }
 
-    /** بطاقات المنتجات للبحث بالاسم مع صورة مصغّرة وسعر والكمية المتوفرة (نمط نقطة البيع). */
+    /**
+     * بطاقات المنتجات للبحث بالاسم (نمط نقطة البيع): بطاقة واحدة لكل منتج مع متغيّراته النشطة
+     * (ألوان/مقاسات) ومتوفّر كلٍّ منها + إجمالي المتوفّر (مجموع المتغيّرات النشطة) — ليختار
+     * المستخدم المقاس/اللون بدل حصر المنتج في المتغيّر الافتراضي (الذي قد يكون متوفّره صفرًا).
+     */
     private function productCards(?Warehouse $warehouse = null)
     {
         $warehouse ??= $this->defaultWarehouse();
 
-        // الكمية المتوفرة (on_hand − reserved) لكل صنف في المستودع الافتراضي — لعرضها في نتائج البحث.
+        // الكمية المتوفرة (on_hand − reserved) لكل متغيّر في المستودع الافتراضي.
         $availableByVariant = InventoryStock::query()
             ->when($warehouse, fn ($q) => $q->where('warehouse_id', $warehouse->id))
             ->selectRaw('variant_id, SUM(on_hand - reserved) as qty')
@@ -638,18 +642,34 @@ class OrderController extends Controller
             ->pluck('qty', 'variant_id');
 
         return Product::query()->active()
-            ->with(['defaultVariant', 'primaryImage'])
+            ->with(['primaryImage', 'variants' => fn ($v) => $v->where('is_active', true)])
             ->orderBy('name')
             ->get()
-            ->filter(fn ($p) => $p->defaultVariant)
-            ->map(fn ($p) => [
-                'name' => $p->name,
-                'sku' => $p->sku,
-                'variant' => $p->defaultVariant->uuid,
-                'price' => (float) $p->defaultVariant->retail_price,
-                'image' => $p->primaryImage?->url(),
-                'available' => (float) ($availableByVariant[$p->defaultVariant->id] ?? 0),
-            ])->values();
+            ->map(function ($p) use ($availableByVariant) {
+                $variants = $p->variants->map(fn (ProductVariant $v) => [
+                    'variant' => $v->uuid,
+                    'label' => $v->name ?: $v->sku,
+                    'price' => (float) ($v->promo_price > 0 ? $v->promo_price : $v->retail_price),
+                    'available' => (float) ($availableByVariant[$v->id] ?? 0),
+                ])->values();
+
+                if ($variants->isEmpty()) {
+                    return null;
+                }
+
+                return [
+                    'name' => $p->name,
+                    'sku' => $p->sku,
+                    'image' => $p->primaryImage?->url(),
+                    'variant' => $variants->first()['variant'],      // ممثّل: للإضافة المباشرة والمرتجع
+                    'price' => (float) $variants->min('price'),
+                    'available' => (float) $variants->sum('available'), // إجمالي متوفّر المنتج
+                    'multi' => $variants->count() > 1,
+                    'variants' => $variants->all(),
+                ];
+            })
+            ->filter()
+            ->values();
     }
 
     /**

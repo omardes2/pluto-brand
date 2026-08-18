@@ -77,12 +77,43 @@
                                 <button type="button" @click="addProduct(p)"
                                         class="w-full flex items-center gap-3 px-3 py-2 hover:bg-emerald-50 text-start">
                                     <span class="min-w-0 flex-1">
-                                        <span class="text-sm font-medium text-gray-800 truncate" x-text="p.name"></span>
+                                        <span class="flex items-center gap-2">
+                                            <span class="text-sm font-medium text-gray-800 truncate" x-text="p.name"></span>
+                                            <span class="shrink-0 text-[11px] px-1.5 py-0.5 rounded-md tabular-nums"
+                                                  :class="(Number(p.available) > 0) ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-600'"
+                                                  x-text="'{{ __('المتوفر') }}: ' + Number(p.available ?? 0)"></span>
+                                        </span>
                                         <span class="block text-xs text-gray-400" x-text="p.sku"></span>
                                     </span>
                                     <span class="text-sm font-semibold text-emerald-600 tabular-nums" x-text="p.price.toFixed(2) + ' {{ $sym }}'"></span>
                                 </button>
                             </template>
+                        </div>
+                    </div>
+
+                    {{-- محدّد المقاس/اللون للأصناف متعدّدة المتغيّرات --}}
+                    <div x-show="picker" x-cloak class="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4"
+                         @click.self="picker = null" @keydown.escape.window="picker = null">
+                        <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-5">
+                            <div class="flex items-center justify-between mb-1">
+                                <h3 class="font-bold text-gray-800" x-text="picker?.name"></h3>
+                                <button type="button" @click="picker = null" class="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
+                            </div>
+                            <p class="text-xs text-gray-400 mb-3">{{ __('اختر المقاس/اللون') }}</p>
+                            <div class="grid grid-cols-3 gap-2 max-h-80 overflow-y-auto">
+                                <template x-for="v in (picker?.variants || [])" :key="v.variant">
+                                    <button type="button" @click="addVariant(picker, v)"
+                                            class="rounded-lg border px-2 py-2 text-center transition"
+                                            :class="Number(v.available) > 0
+                                                ? 'border-gray-200 hover:border-emerald-500 hover:bg-emerald-50'
+                                                : 'border-gray-100 bg-gray-50'">
+                                        <span class="block text-sm font-medium text-gray-800 truncate" x-text="v.label"></span>
+                                        <span class="block text-[11px] tabular-nums"
+                                              :class="Number(v.available) > 0 ? 'text-emerald-600' : 'text-rose-500'"
+                                              x-text="'{{ __('المتوفر') }}: ' + Number(v.available)"></span>
+                                    </button>
+                                </template>
+                            </div>
                         </div>
                     </div>
 
@@ -172,6 +203,7 @@
                     rows: (initialRows || []).map(r => ({ ...r })),
                     query: '',
                     showResults: false,
+                    picker: null,
                     shipping: Number(shippingTotal) || 0,
 
                     get filteredProducts() {
@@ -196,15 +228,27 @@
                         return Math.max(0, this.subtotal - this.discountTotal) + this.shipping;
                     },
                     addProduct(p) {
-                        const existing = this.rows.find(r => r.variant === p.variant);
+                        const variants = p.variants || [];
+                        if (p.multi && variants.length > 1) {
+                            this.picker = p;
+                            this.query = '';
+                            this.showResults = false;
+                            return;
+                        }
+                        this.addVariant(p, variants[0] || { variant: p.variant, label: p.name, price: p.price });
+                    },
+                    addVariant(p, v) {
+                        const name = (v.label && v.label !== p.name) ? (p.name + ' — ' + v.label) : p.name;
+                        const existing = this.rows.find(r => r.variant === v.variant);
                         if (existing) {
                             existing.qty = (Number(existing.qty) || 0) + 1;
                         } else {
                             this.rows.push({
-                                variant: p.variant, name: p.name, sku: p.sku,
-                                image: p.image, unit_price: p.price, qty: 1, discount: 0,
+                                variant: v.variant, name: name, sku: p.sku,
+                                image: p.image, unit_price: v.price, qty: 1, discount: 0,
                             });
                         }
+                        this.picker = null;
                         this.query = '';
                         this.showResults = false;
                     },
