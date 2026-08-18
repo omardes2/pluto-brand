@@ -42,6 +42,31 @@ class EmployeeLedgerService
     }
 
     /**
+     * تعديل قيد قائم (النوع/المبلغ/التاريخ/الملاحظة). يُعاد حساب المبلغ المُوقّع بنفس منطق التسجيل.
+     * الرصيد مشتقٌّ من مجموع القيود فيتحدّث تلقائيًا.
+     */
+    public function update(
+        EmployeeLedgerEntry $entry,
+        string $type,
+        float $amount,
+        ?string $note = null,
+        ?string $entryDate = null,
+        string $direction = 'debit',
+    ): EmployeeLedgerEntry {
+        $magnitude = abs($amount);
+        $sign = EmployeeLedgerEntry::SIGNS[$type] ?? ($direction === 'credit' ? 1 : -1);
+
+        $entry->update([
+            'type' => $type,
+            'amount' => round($sign * $magnitude, 2),
+            'entry_date' => $entryDate ?: $entry->entry_date->toDateString(),
+            'note' => $note,
+        ]);
+
+        return $entry;
+    }
+
+    /**
      * احتساب راتب الشهر لكل الموظفين النشطين (قيد استحقاق راتب) — idempotent لكل شهر.
      * يتخطّى من احتُسب له راتب هذا الشهر مسبقًا. يعيد عدد من احتُسب لهم.
      */

@@ -374,6 +374,8 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::post('salaries/run', [AdminEmployeeController::class, 'runMonthlySalaries'])->name('salaries.run')->middleware('can:hr.employees.ledger');
         Route::get('{employee}', [AdminEmployeeController::class, 'show'])->name('show')->middleware('can:hr.employees.view');
         Route::post('{employee}/entries', [AdminEmployeeController::class, 'storeEntry'])->name('entries.store')->middleware('can:hr.employees.ledger');
+        Route::put('{employee}/entries/{entry}', [AdminEmployeeController::class, 'updateEntry'])->name('entries.update')->middleware('can:hr.employees.ledger');
+        Route::delete('{employee}/entries/{entry}', [AdminEmployeeController::class, 'destroyEntry'])->name('entries.destroy')->middleware('can:hr.employees.ledger');
         Route::get('{employee}/edit', [AdminEmployeeController::class, 'edit'])->name('edit')->middleware('can:hr.employees.update');
         Route::put('{employee}', [AdminEmployeeController::class, 'update'])->name('update')->middleware('can:hr.employees.update');
         Route::post('{employee}/toggle', [AdminEmployeeController::class, 'toggleActive'])->name('toggle')->middleware('can:hr.employees.update');

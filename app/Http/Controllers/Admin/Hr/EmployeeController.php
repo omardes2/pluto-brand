@@ -6,9 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Hr\StoreEmployeeRequest;
 use App\Http\Requests\Admin\Hr\StoreLedgerEntryRequest;
 use App\Http\Requests\Admin\Hr\UpdateEmployeeRequest;
+use App\Http\Requests\Admin\Hr\UpdateLedgerEntryRequest;
 use App\Models\User;
 use App\Modules\Foundation\Models\Branch;
 use App\Modules\Hr\Models\Employee;
+use App\Modules\Hr\Models\EmployeeLedgerEntry;
 use App\Modules\Hr\Services\EmployeeLedgerService;
 use App\Modules\Hr\Services\EmployeeService;
 use Illuminate\Contracts\View\View;
@@ -86,6 +88,32 @@ class EmployeeController extends Controller
         );
 
         return back()->with('success', __('سُجّلت الحركة.'));
+    }
+
+    public function updateEntry(UpdateLedgerEntryRequest $request, Employee $employee, EmployeeLedgerEntry $entry): RedirectResponse
+    {
+        abort_unless($entry->employee_id === $employee->id, 404);
+
+        $data = $request->validated();
+        $this->ledger->update(
+            entry: $entry,
+            type: $data['type'],
+            amount: (float) $data['amount'],
+            note: $data['note'] ?? null,
+            entryDate: $data['entry_date'] ?? null,
+            direction: $data['direction'] ?? 'debit',
+        );
+
+        return back()->with('success', __('حُدّثت الحركة.'));
+    }
+
+    public function destroyEntry(Employee $employee, EmployeeLedgerEntry $entry): RedirectResponse
+    {
+        abort_unless($entry->employee_id === $employee->id, 404);
+
+        $entry->delete();
+
+        return back()->with('success', __('حُذفت الحركة.'));
     }
 
     public function edit(Employee $employee): View
