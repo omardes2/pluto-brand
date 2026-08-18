@@ -112,7 +112,7 @@
   .trow b{color:var(--text);font-weight:700}
   .trow.grand{font-size:20px;padding-top:8px;margin-top:2px;border-top:1px dashed var(--border)}
   .trow.grand span{font-weight:800;color:var(--text)}.trow.grand b{color:var(--accent-strong);font-weight:800}
-  .pay-methods{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .pay-methods{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
   .pm.disabled{opacity:.4;cursor:not-allowed}
   .pm{border:1.5px solid var(--border);background:var(--surface);color:var(--muted);border-radius:11px;padding:10px 4px;cursor:pointer;
     font-weight:700;font-size:13px;display:flex;flex-direction:column;align-items:center;gap:5px}
@@ -262,7 +262,6 @@
         </div>
         <div class="pay-methods">
           <div class="pm" :class="method==='cash' && 'active'" x-on:click="method='cash'">💵 {{ __('نقدي') }}</div>
-          <div class="pm" :class="method==='card' && 'active'" x-on:click="method='card'">💳 {{ __('بطاقة') }}</div>
           <div class="pm" :class="{'active': method==='credit', 'disabled': !customerId}" x-on:click="customerId ? method='credit' : toast('{{ __('اختر عميلًا أولًا للبيع الآجل') }}')">📒 {{ __('آجل') }}</div>
         </div>
         <div x-show="method==='cash'">
