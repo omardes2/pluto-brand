@@ -10,6 +10,7 @@ use App\Modules\Store\Services\StorefrontService;
 use App\Support\Contracts\StorefrontRecommendationProvider;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\View\View;
 
 /**
@@ -82,7 +83,33 @@ class StorefrontController extends Controller
             'crossSell' => $this->reco->crossSell($product, 8),
             'upsell' => $this->reco->upsell($product, 8),
             'bundles' => $this->reco->bundles($product, 8),
-        ]);
+        ] + $this->deliveryDestinations()); // مدن/مناطق/أسعار التوصيل لـ«شراء الآن» المباشر.
+    }
+
+    /**
+     * وجهات التوصيل المدعومة (مدن لها سعر/كود لدى شركة التوصيل) + مناطقها + أسعارها.
+     * تُستخدم في إتمام الشراء و«شراء الآن» من صفحة المنتج.
+     *
+     * @return array{cities: Collection, areas: Collection, cityRates: Collection}
+     */
+    private function deliveryDestinations(): array
+    {
+        $rates = DeliveryCityRate::where('is_active', true)->get(['city_id', 'delivery_fee']);
+        $rateCityIds = $rates->pluck('city_id')->filter()->unique();
+
+        $cities = City::where('is_active', true)
+            ->whereIn('id', $rateCityIds)
+            ->orderBy('sort_order')->orderBy('name')->get(['id', 'name']);
+
+        $areas = Area::where('is_active', true)
+            ->whereIn('city_id', $cities->pluck('id'))
+            ->orderBy('sort_order')->orderBy('name')->get(['id', 'name', 'city_id']);
+
+        return [
+            'cities' => $cities,
+            'areas' => $areas,
+            'cityRates' => $rates->pluck('delivery_fee', 'city_id'),
+        ];
     }
 
     public function cart(): View
@@ -97,24 +124,10 @@ class StorefrontController extends Controller
     {
         // وجهات التوصيل: مدن المزوّد فقط (التي لها سعر/كود لدى شركة التوصيل) — كي لا يختار
         // الزبون مدينة غير مدعومة فيُرفض الإرسال. مطابق لشاشة إنشاء الطلب في الأدمن.
-        $rates = DeliveryCityRate::where('is_active', true)->get(['city_id', 'delivery_fee']);
-        $rateCityIds = $rates->pluck('city_id')->filter()->unique();
-
-        $cities = City::where('is_active', true)
-            ->whereIn('id', $rateCityIds)
-            ->orderBy('sort_order')->orderBy('name')->get(['id', 'name']);
-
-        $areas = Area::where('is_active', true)
-            ->whereIn('city_id', $cities->pluck('id'))
-            ->orderBy('sort_order')->orderBy('name')->get(['id', 'name', 'city_id']);
-
         // توصيات في الإتمام (Phase 6 / ADR-045): الأكثر مبيعًا (بيع تكميلي خفيف).
         return view('storefront.checkout', [
             'recommendations' => $this->reco->bestSellers(8),
-            'cities' => $cities,
-            'areas' => $areas,
-            'cityRates' => $rates->pluck('delivery_fee', 'city_id'),
-        ]);
+        ] + $this->deliveryDestinations());
     }
 
     public function setLocale(Request $request, string $locale): RedirectResponse

@@ -42,6 +42,7 @@ return [
 
     // Product card / details
     'add_to_cart' => 'Add to cart',
+    'buy_now' => 'Buy now',
     'added' => 'Added',
     'select_options' => 'Select options',
     'in_stock' => 'In stock',

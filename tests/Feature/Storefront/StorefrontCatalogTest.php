@@ -91,6 +91,11 @@ class StorefrontCatalogTest extends TestCase
         $res->assertSee('"@type":"Product"', false); // بيانات مهيكلة
         $res->assertSee('rel="canonical"', false);
         $res->assertSee('أفضل كوب قهوة'); // meta description
+        // «شراء الآن» + بيانات وجهات التوصيل متاحة لنافذة الإتمام المباشر.
+        $res->assertSee(__('storefront.buy_now'));
+        $res->assertViewHas('cities');
+        $res->assertViewHas('areas');
+        $res->assertViewHas('cityRates');
     }
 
     public function test_hidden_or_inactive_product_returns_404(): void
