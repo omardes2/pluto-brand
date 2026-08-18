@@ -57,7 +57,8 @@
         </div>
 
         {{-- التفاصيل --}}
-        <div>
+        @php $buyCfg = ['areas' => $areas, 'cityRates' => $cityRates]; @endphp
+        <div x-data="buyNow(@js($buyCfg))" @buy-now="openFor($event.detail.uuid, $event.detail.qty)">
             @if ($product->brand)
                 <a href="{{ route('storefront.brand', $product->brand->slug) }}" class="text-sm text-gray-900 hover:underline">{{ $product->brand->name }}</a>
             @endif
@@ -159,6 +160,13 @@
                             <span x-show="done" x-cloak>✓ {{ __('storefront.added') }}</span>
                         </button>
                     </div>
+
+                    {{-- شراء الآن: إضافة المتغيّر المختار ثم فتح إتمام الشراء مباشرةً --}}
+                    <button type="button" @click="$dispatch('buy-now', { uuid: current.uuid, qty })" :disabled="!canBuy"
+                            class="mt-3 w-full inline-flex items-center justify-center gap-2 rounded-lg border-2 border-gray-900 text-gray-900 hover:bg-gray-900 hover:text-white disabled:border-gray-200 disabled:text-gray-300 disabled:hover:bg-transparent disabled:cursor-not-allowed font-semibold px-6 py-3 transition">
+                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7Z"/></svg>
+                        {{ __('storefront.buy_now') }}
+                    </button>
                 </div>
             @else
                 {{-- منتج بسيط: كما هو (متغيّر افتراضي واحد) --}}
@@ -197,17 +205,25 @@
 
                 {{-- إضافة للسلة --}}
                 @if ($variant && $inStock)
-                    <div class="mt-6 flex items-center gap-3" x-data="{ qty: 1, done: false }">
-                        <div class="inline-flex items-center rounded-lg border border-gray-300 overflow-hidden">
-                            <button type="button" @click="qty = Math.max(1, qty - 1)" class="px-3 py-2 text-gray-600 hover:bg-gray-50" aria-label="-">−</button>
-                            <input type="text" x-model="qty" readonly class="w-12 text-center border-0 focus:ring-0 p-0" aria-label="{{ __('storefront.qty') }}">
-                            <button type="button" @click="qty++" class="px-3 py-2 text-gray-600 hover:bg-gray-50" aria-label="+">+</button>
+                    <div class="mt-6" x-data="{ qty: 1, done: false }">
+                        <div class="flex items-center gap-3">
+                            <div class="inline-flex items-center rounded-lg border border-gray-300 overflow-hidden">
+                                <button type="button" @click="qty = Math.max(1, qty - 1)" class="px-3 py-2 text-gray-600 hover:bg-gray-50" aria-label="-">−</button>
+                                <input type="text" x-model="qty" readonly class="w-12 text-center border-0 focus:ring-0 p-0" aria-label="{{ __('storefront.qty') }}">
+                                <button type="button" @click="qty++" class="px-3 py-2 text-gray-600 hover:bg-gray-50" aria-label="+">+</button>
+                            </div>
+                            <button type="button"
+                                    @click="await $store.cart.add('{{ $variant->uuid }}', qty); done = true; setTimeout(() => done = false, 1500)"
+                                    class="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-gray-900 hover:bg-black text-white font-semibold px-6 py-3 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-1">
+                                <span x-show="!done">{{ __('storefront.add_to_cart') }}</span>
+                                <span x-show="done" x-cloak>✓ {{ __('storefront.added') }}</span>
+                            </button>
                         </div>
-                        <button type="button"
-                                @click="await $store.cart.add('{{ $variant->uuid }}', qty); done = true; setTimeout(() => done = false, 1500)"
-                                class="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-gray-900 hover:bg-black text-white font-semibold px-6 py-3 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-1">
-                            <span x-show="!done">{{ __('storefront.add_to_cart') }}</span>
-                            <span x-show="done" x-cloak>✓ {{ __('storefront.added') }}</span>
+                        {{-- شراء الآن --}}
+                        <button type="button" @click="$dispatch('buy-now', { uuid: '{{ $variant->uuid }}', qty })"
+                                class="mt-3 w-full inline-flex items-center justify-center gap-2 rounded-lg border-2 border-gray-900 text-gray-900 hover:bg-gray-900 hover:text-white font-semibold px-6 py-3 transition">
+                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7Z"/></svg>
+                            {{ __('storefront.buy_now') }}
                         </button>
                     </div>
                 @else
@@ -268,6 +284,106 @@
                     </dl>
                 </div>
             @endif
+
+            {{-- ————— نافذة «شراء الآن»: إتمام الشراء المباشر ————— --}}
+            <div x-show="open" x-cloak class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4"
+                 @keydown.escape.window="close()">
+                <div class="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl max-h-[92vh] overflow-y-auto shadow-2xl" @click.outside="close()">
+                    <div class="flex items-center justify-between p-4 border-b border-gray-100 sticky top-0 bg-white">
+                        <h2 class="font-bold text-gray-900">{{ __('storefront.buy_now') }}</h2>
+                        <button type="button" @click="close()" class="text-gray-400 hover:text-gray-700 text-2xl leading-none">&times;</button>
+                    </div>
+
+                    {{-- حالة التحميل عند البدء --}}
+                    <template x-if="starting">
+                        <div class="p-10 text-center text-gray-500">{{ __('storefront.loading') }}</div>
+                    </template>
+
+                    {{-- تأكيد الطلب --}}
+                    <template x-if="order">
+                        <div class="p-8 text-center">
+                            <div class="mx-auto h-14 w-14 rounded-full bg-gray-100 text-gray-900 flex items-center justify-center mb-3">
+                                <svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/></svg>
+                            </div>
+                            <p class="text-lg font-bold text-gray-900">{{ __('storefront.order_placed') }}</p>
+                            <p class="text-sm text-gray-500 mt-1">{{ __('storefront.order_number') }}: <span class="font-mono font-medium" x-text="order.order_number"></span></p>
+                            <p class="text-black font-bold mt-2" x-text="`${Number(order.total).toFixed(2)} {{ __('storefront.currency') }}`"></p>
+                            <a href="{{ route('storefront.shop') }}" class="inline-block mt-5 text-sm text-gray-900 hover:underline">{{ __('storefront.continue_shopping') }}</a>
+                        </div>
+                    </template>
+
+                    {{-- نموذج الإتمام --}}
+                    <template x-if="!starting && !order">
+                        <form @submit.prevent="place()" class="p-4 space-y-4">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ __('storefront.customer_name') }}</label>
+                                    <input x-model="form.customer_name" required class="w-full rounded-lg border-gray-300 focus:border-gray-900 focus:ring-gray-900">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ __('storefront.customer_phone') }}</label>
+                                    <input x-model="form.customer_phone" required inputmode="tel" class="w-full rounded-lg border-gray-300 focus:border-gray-900 focus:ring-gray-900">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ __('storefront.city') }}</label>
+                                    <select x-model.number="form.city_id" required x-on:change="form.area_id=''"
+                                            class="w-full rounded-lg border-gray-300 focus:border-gray-900 focus:ring-gray-900">
+                                        <option value="">{{ __('storefront.select_city') }}</option>
+                                        @foreach ($cities as $city)
+                                            <option value="{{ $city->id }}">{{ $city->name }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ __('storefront.area') }}</label>
+                                    <select x-model.number="form.area_id"
+                                            class="w-full rounded-lg border-gray-300 focus:border-gray-900 focus:ring-gray-900 disabled:bg-gray-100"
+                                            :disabled="!form.city_id || areasForCity.length === 0">
+                                        <option value="">{{ __('storefront.select_area') }}</option>
+                                        <template x-for="a in areasForCity" :key="a.id">
+                                            <option :value="a.id" x-text="a.name"></option>
+                                        </template>
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ __('storefront.shipping_address') }}</label>
+                                <textarea x-model="form.shipping_address" required rows="2"
+                                          class="w-full rounded-lg border-gray-300 focus:border-gray-900 focus:ring-gray-900"></textarea>
+                            </div>
+
+                            <label class="flex items-center gap-3 p-3 rounded-lg border border-gray-200">
+                                <input type="radio" name="pm-buynow" value="cod" x-model="form.payment_method_code" class="text-gray-900 focus:ring-gray-900" checked>
+                                <span class="text-gray-800">{{ __('storefront.cod') }}</span>
+                            </label>
+
+                            {{-- الملخّص --}}
+                            <div class="rounded-lg bg-gray-50 p-3 text-sm space-y-1.5">
+                                <div class="flex items-center justify-between text-gray-700">
+                                    <span>{{ __('storefront.subtotal') }}</span>
+                                    <span class="font-bold" x-text="`${subtotal.toFixed(2)} {{ __('storefront.currency') }}`"></span>
+                                </div>
+                                <div class="flex items-center justify-between text-gray-600">
+                                    <span>{{ __('storefront.shipping') }}</span>
+                                    <span x-text="shipping > 0 ? `${shipping.toFixed(2)} {{ __('storefront.currency') }}` : '{{ __('storefront.free') }}'"></span>
+                                </div>
+                                <div class="flex items-center justify-between text-gray-900 font-bold border-t border-gray-200 pt-1.5">
+                                    <span>{{ __('storefront.total') }}</span>
+                                    <span x-text="`${(subtotal + shipping).toFixed(2)} {{ __('storefront.currency') }}`"></span>
+                                </div>
+                            </div>
+
+                            <template x-if="error"><p class="text-sm text-rose-600" x-text="error"></p></template>
+
+                            <button type="submit" :disabled="placing"
+                                    class="w-full rounded-lg bg-gray-900 hover:bg-black disabled:opacity-60 text-white font-semibold py-3">
+                                <span x-show="!placing">{{ __('storefront.place_order') }}</span>
+                                <span x-show="placing" x-cloak>{{ __('storefront.loading') }}</span>
+                            </button>
+                        </form>
+                    </template>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -346,6 +462,64 @@
                     await this.$store.cart.add(this.current.uuid, this.qty);
                     this.done = true;
                     setTimeout(() => this.done = false, 1500);
+                },
+            };
+        }
+
+        // «شراء الآن»: يضيف المتغيّر المختار للسلة ثم يفتح إتمام الشراء مباشرةً (يعيد استخدام واجهة الإتمام).
+        function buyNow(cfg) {
+            const API = '/api/v1/store';
+            return {
+                open: false,
+                starting: false,
+                placing: false,
+                error: null,
+                order: null,
+                sessionId: null,
+                areas: cfg.areas || [],
+                cityRates: cfg.cityRates || {},
+                form: { customer_name: '', customer_phone: '', shipping_address: '', city_id: '', area_id: '', payment_method_code: 'cod' },
+
+                get areasForCity() {
+                    return this.form.city_id ? this.areas.filter(a => Number(a.city_id) === Number(this.form.city_id)) : [];
+                },
+                get shipping() { return Number(this.cityRates[this.form.city_id] || 0); },
+                get subtotal() { return Number(this.$store.cart.subtotal || 0); },
+
+                async openFor(uuid, qty) {
+                    if (!uuid) return;
+                    this.error = null; this.order = null; this.sessionId = null;
+                    this.open = true; this.starting = true;
+                    try {
+                        const ok = await this.$store.cart.add(uuid, qty || 1);
+                        if (!ok) throw new Error('add');
+                        const res = await fetch(`${API}/checkout`, { method: 'POST', headers: window.StorefrontIdentity.headers() });
+                        if (!res.ok) throw new Error('start');
+                        this.sessionId = (await res.json()).data.id;
+                    } catch (e) {
+                        this.error = '{{ __('storefront.error') }}';
+                    } finally {
+                        this.starting = false;
+                    }
+                },
+
+                close() { this.open = false; },
+
+                async place() {
+                    if (!this.sessionId || this.placing) return;
+                    this.placing = true; this.error = null;
+                    try {
+                        const h = window.StorefrontIdentity.headers();
+                        await fetch(`${API}/checkout/${this.sessionId}`, { method: 'PATCH', headers: h, body: JSON.stringify(this.form) });
+                        const res = await fetch(`${API}/checkout/${this.sessionId}/place`, { method: 'POST', headers: h });
+                        if (!res.ok) throw new Error('place');
+                        this.order = (await res.json()).data;
+                        await this.$store.cart.refresh();
+                    } catch (e) {
+                        this.error = '{{ __('storefront.error') }}';
+                    } finally {
+                        this.placing = false;
+                    }
                 },
             };
         }
