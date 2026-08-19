@@ -64,6 +64,7 @@ use App\Http\Controllers\Storefront\Account\ProfileController as AccountProfileC
 use App\Http\Controllers\Storefront\Account\SocialAuthController;
 use App\Http\Controllers\Storefront\Account\WishlistController;
 use App\Http\Controllers\Storefront\RecommendationTrackingController;
+use App\Http\Controllers\Storefront\MetaFeedController;
 use App\Http\Controllers\Storefront\StorefrontController;
 use App\Http\Middleware\EnforceMaintenanceMode;
 use Illuminate\Support\Facades\Route;
@@ -72,6 +73,9 @@ use Illuminate\Support\Facades\Route;
 | واجهة المتجر العامّة (Phase 3.3 / ADR-034) — SSR للـSEO، عربي RTL + إنجليزي.
 | قراءة عبر StorefrontService؛ السلة/الإتمام عبر واجهات API (3.1/3.2) من العميل.
 */
+// موجز كتالوج ميتا (CSV) — عام، خارج وضع الصيانة كي يستطيع ميتا سحبه دائمًا.
+Route::get('/feed/meta.csv', [MetaFeedController::class, 'csv'])->name('storefront.feed.meta');
+
 Route::middleware(['storefront.locale', EnforceMaintenanceMode::class])->group(function () {
     Route::get('/', [StorefrontController::class, 'home'])->name('storefront.home');
     Route::get('/shop', [StorefrontController::class, 'index'])->name('storefront.shop');
